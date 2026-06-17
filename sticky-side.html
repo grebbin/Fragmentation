@@ -35,7 +35,7 @@
         position: sticky;
         width: 100%;
         margin: 0;
-        background-image: url("images/lynx1.jpg");
+        background-image: url("./images/lynx1.jpg");
         background-size: cover;
         z-index: 0;
         top: 12.5vh;
@@ -143,7 +143,7 @@
         el.classList.add('is-active');
 
         // update graphic based on step
-        sticky.style.backgroundImage = `url("/images/${el.dataset.image}.jpg")`;
+        sticky.style.backgroundImage = `url("./images/${el.dataset.image}.jpg")`;
       }
 
       function init() {
