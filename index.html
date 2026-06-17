@@ -1,47 +1,62 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Patterns of Play</title>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Scrollama: Basic Example</title>
+    <meta name="description" content="Scrollama: Basic Example" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      #scrolly {
+        position: relative;
+      }
 
-        <!-- Link Libraries and Styles -->
-        <link rel="stylesheet" href="/assets/styles/scroll.css">
+      article {
+        position: relative;
+        padding: 0 1rem;
+        margin: 0 auto;
+        width: 33%;
+      }
 
-    </head>
+      .step {
+        margin: 2rem auto 4rem auto;
+        background-color: #3b3b3b;
+        color: #fff;
+      }
 
-    <body>
+      .step.is-active {
+        background-color: goldenrod;
+        color: #3b3b3b;
+      }
 
-        <section id='scroll'>
-        <!--  graphic container  -->
-	<div class='scroll__graphic'>
-		<!--   actual graphic/chart   -->
-		<div class='chart'>
-			<p>0</p>
-		</div>
-	</div>
+      .step p {
+        text-align: center;
+        padding: 1rem;
+        font-size: 1.5rem;
+      }
+    </style>
+  </head>
 
-        <!--  step/text container  -->
-	<div class='scroll__text'>
-		<div class='step' data-step='1'>
-			<p>STEP 1</p>
-		</div>
-		<div class='step' data-step='2'>
-			<p>STEP 2</p>
-		</div>
-		<div class='step' data-step='3'>
-			<p>STEP 3</p>
-		</div>
-		<div class='step' data-step='4'>
-			<p>STEP 4</p>
-		</div>
-	</div>
-</section>
+  <body>
+    
+    <main>
+      <nav>
+        <a href="https://github.com/russellgoldenberg/scrollama">scrollama.js</a>
+        <div class="nav__examples">
+          <p>Examples:</p>
+          <a href="basic.html">Basic</a>
+          <a href="progress.html">Progress</a>
+          <a href="sticky-side.html">Sticky Side</a>
+          <a href="sticky-overlay.html">Sticky Overlay</a>
+        </div>
+      </nav>
+      <section id="intro">
+        <h1 class="intro__hed">Stripped-down Scrollama.js examples</h1>
+      </section>
+    </main>
 
-
-    <!-- Link Scripts -->
+    <script src="https://unpkg.com/intersection-observer"></script>
     <script src="https://unpkg.com/scrollama"></script>
-
-    </body>
-
+  </body>
 </html>
