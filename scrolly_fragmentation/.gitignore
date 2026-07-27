@@ -1,0 +1,10 @@
+node_modules
+dist
+.DS_Store
+*.local
+
+# Large local source data and uncompressed backups.
+src/data/
+src/assets/raster-originals/
+archive_local/
+*.qmd

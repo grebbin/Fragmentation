@@ -1,0 +1,292 @@
+import { sections, stories } from "./content.js";
+import { createScrollArrow } from "./navigation.js";
+
+function baseSection(index) {
+  const definition = sections[index];
+  const section = document.createElement("section");
+  section.id = definition.id;
+  section.className = `story-section ${definition.className}`;
+  section.dataset.theme = definition.theme;
+  section.dataset.section = definition.id;
+  return section;
+}
+// Create the opening video section.
+function createIntro() {
+  const section = baseSection(0);
+  section.innerHTML = `
+  <video class="intro-section__video" autoplay playsinline preload="auto" aria-label="Introductory forest film">
+    <source src="/media/start_first.webm" type="video/webm" />
+  </video>
+  <div class="intro-section__heading">
+    <h1>Fragmented Reality</h1>
+    <p>Explore forest fragmentation based on scientific data.</p>
+  </div>
+`;
+  section.append(createScrollArrow("#introduction-sequence"));
+  return section;
+}
+// Create the layered intro PNG sequence; scrolling later changes frame opacity.
+function createImageSequence() {
+  const section = baseSection(1);
+  section.id = "introduction-sequence";
+  section.dataset.section = "introduction";
+  const frames = Array.from({ length: 6 }, (_, index) => {
+    const frame = index + 1;
+    const mobileSource = frame === 6
+      ? `<source media="(max-width: 700px)" srcset="/media/intro6_mobile.webp" />`
+      : "";
+    return `<picture>${mobileSource}<img class="sequence-section__frame${index === 0 ? " is-revealed" : ""}" src="/media/intro${frame}.webp" alt="" data-sequence-frame="${index}" style="--frame-layer: ${index}" /></picture>`;
+  }).join("");
+  section.innerHTML = `
+  <div class="sequence-section__stage">
+    <div class="sequence-section__media" aria-hidden="true">
+      ${frames}
+    </div>
+    <div class="sequence-section__texts">
+      <div class="sequence-section__text" data-sequence-text="0">
+        <p>These are the two perspectives on land fragmentation, which describes the disruption of natural ecological connections caused by humans.</p>
+      </div>
+      <div class="sequence-section__text" data-sequence-text="1">
+        <p>Let's experience fragmentation through the eyes of the lynx on their route from the Bavarian Forest to the Harz Mountains.</p>
+      </div>
+      <div class="sequence-section__text" data-sequence-text="2">
+        <p>The lynx populations in these areas of Germany are so isolated from one another that natural genetic exchange is virtually impossible, which increases the risk of inbreeding and genetic erosion.</p>
+      </div>
+    </div>
+  </div>
+`;
+  return section;
+}
+// Create all five story cards inside one sticky scrollytelling chapter.
+function createStorySections() {
+  const section = document.createElement("section");
+  section.id = "perspective-shift";
+  section.className = "story-section story-chapter-section story-chapter-section--journey";
+  section.dataset.theme = "dark";
+  section.dataset.section = "perspective-shift";
+  const cards = stories.map((story, index) => `
+    <article class="story-card" data-story-card="${index}">
+      <p class="eyebrow">Story ${index + 1} of ${stories.length}</p>
+      <h2>${story.title}</h2>
+      <p>${story.copy}</p>
+      <ul class="story-card__facts">
+        ${story.facts.map((fact) => `<li>${fact}</li>`).join("")}
+      </ul>
+    </article>
+  `).join("");
+  section.innerHTML = `
+    <div class="story-chapter-section__stage">
+      <div class="story-chapter-section__panel">${cards}</div>
+      <div class="story-chapter-section__media" aria-hidden="true">
+        <img src="/media/story_placeholder.webp" alt="" />
+      </div>
+      <div class="story-outro">
+        <picture>
+          <source media="(max-width: 700px)" srcset="/media/intro8_mobile.webp" />
+          <img class="story-outro__image" src="/media/intro8.webp" alt="" aria-hidden="true" />
+        </picture>
+        <p class="story-outro__text">
+          Your journey is completed.<br />
+          You reached the other side.<br />
+          But in reality, many lynx never do.
+        </p>
+        <a class="scroll-arrow story-outro__arrow" href="#route" aria-label="Explore the data in the next part">
+          <span>Explore the data in the next part</span>
+          <span aria-hidden="true">&darr;</span>
+        </a>
+      </div>
+    </div>
+  `;
+  return [section];
+}
+// Build the combined barrier, forest, pseudo-relief, and mesh-size map chapter.
+function createMap() {
+  const section = baseSection(4);
+  section.id = "route";
+  section.dataset.section = "route";
+  section.innerHTML = `
+  <div class="map-section__stage">
+    <div class="map-section__copy">
+      <div class="map-section__step map-section__step--barriers">
+        <div class="map-section__title-row">
+          <h2>
+            <span class="map-section__marks" aria-hidden="true">
+              <img class="map-section__mark" src="/media/route.svg" alt="" />
+              <img class="map-section__mark" src="/media/bar_types.svg" alt="" />
+            </span><span class="map-section__title-text">The Route: Barrier Types</span>
+          </h2>
+        </div>
+        <div class="map-section__intro-copy">
+          <p>During your journey, you encountered various types and barrier strengths, each affecting your movement and perception in different ways.</p>
+          <p>In reality, however, a dispersing lynx would face many more barriers.</p>
+        </div>
+      </div>
+      <div class="map-section__step map-section__step--intro map-section__intro">
+        <div class="map-section__title-row map-section__forest-title">
+          <h2><span class="map-section__marks" aria-hidden="true"><img class="map-section__mark" src="/media/forests.svg" alt="" /></span><span class="map-section__title-text">Germany's Federal States: Forests</span></h2>
+        </div>
+        <div class="map-section__intro-copy">
+          <p>To explore the whole picture of fragmentation in Germany, we first look at the different indicators.</p>
+          <p>A 'good forest', which is essential for biodiversity, is considered to be an area above 50 km\xB2.</p>
+        </div>
+      </div>
+      <div class="map-section__step map-section__step--detail">
+        <p class="map-section__reveal-text">If we only consider forests larger than 50 km\xB2, this is what the total area looks like.</p>
+        <p class="map-section__facts">The indicator measures the Percentage of Undivided Forests relative to Total Land Area.</p>
+      </div>
+      <div class="map-section__step map-section__step--pseudo">
+        <div class="map-section__title-row map-section__pseudo-title">
+          <h2><span class="map-section__marks" aria-hidden="true"><img class="map-section__mark" src="/media/stubroads.svg" alt="" /></span><span class="map-section__title-text">Hidden fragmentation: Stub roads and Pseudo-relief</span></h2>
+        </div>
+        <p class="map-section__reveal-text">It's not just the forest size that matters; shape has an impact too.</p>
+        <p class="map-section__reveal-text map-section__stub-copy">So-called stub roads are not classified as fragmentation, yet they significantly reduce the depth of quiet, unfragmented core areas.</p>
+        <p class="map-section__facts map-section__pseudo-facts-copy">Pseudo-relief and mean distance to the nearest fragmented area are used to better capture the effect of stub roads. High pseudo-volume (white) marks a compact area with a large, deep core far from human disturbance. Low pseudo-volume (red) marks an area that is either narrow or "punctured" by stub roads.</p>
+      </div>
+      <div class="map-section__step map-section__step--mesh">
+        <div class="map-section__title-row map-section__mesh-title">
+          <h2><span class="map-section__marks" aria-hidden="true"><img class="map-section__mark" src="/media/diagonal.svg" alt="" /><img class="map-section__mark" src="/media/meshsize.svg" alt="" /></span><span class="map-section__title-text">Mesh size</span></h2>
+        </div>
+        <p class="map-section__reveal-text map-section__mesh-intro-copy">To gain a fuller picture of fragmentation, scientists use the indicator mesh sizes. This makes it easier to compare states.</p>
+        <p class="map-section__facts map-section__mesh-fact map-section__mesh-fact--intro">Effective mesh size quantifies landscape fragmentation by estimating the probability that two randomly chosen points remain within the same contiguous habitat patch.</p>
+        <video class="map-section__mesh-animation" src="/media/meshsize.mp4" autoplay muted loop playsinline aria-label="Mesh-size animation"></video>
+        <p class="map-section__facts map-section__mesh-fact map-section__mesh-fact--outro">Larger mesh sizes indicate lower fragmentation, greater ecological connectivity, and better conditions for wildlife movement.</p>
+        <p class="map-section__reveal-text map-section__mesh-route-copy">The original route of the lynx passes through two federal states which are among the least fragmented regions.</p>
+        <p class="map-section__reveal-text map-section__mesh-bayern-copy">Bayern, with a mesh size of <strong>8,47</strong> km².</p>
+        <p class="map-section__reveal-text map-section__mesh-thueringen-copy">Thüringen, with a mesh size of <strong>7,38</strong> km².</p>
+        <div class="map-section__mesh-diagonal-step">
+          <p class="map-section__reveal-text">To make this number of km² more relatable, imagine walking the distance diagonally, as this is the longest distance in a square-shaped geometry.</p>
+          <video class="map-section__diagonal-animation" src="/media/diagonal.mp4" autoplay muted loop playsinline aria-label="Diagonal walking-distance animation"></video>
+          <p class="map-section__facts">The walking pace used for the calculation<br class="mobile-only-break" /> is 5 km/h.</p>
+          <p class="map-section__reveal-text map-section__mesh-bayern-time">It would take around <strong>49</strong> minutes to walk undisturbed in Bayern without encountering any fragmentation barriers.</p>
+          <p class="map-section__reveal-text map-section__mesh-thueringen-time">In Thüringen it would take around <strong>46</strong> minutes.</p>
+        </div>
+      </div>
+    </div>
+    <div class="map-section__media">
+      <div class="forest-map" aria-live="polite">
+        <p class="forest-map__status">Loading forest data…</p>
+        <svg class="forest-map__svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="forest-map-title forest-map-description">
+          <title id="forest-map-title">Forests in Germany</title>
+          <desc id="forest-map-description">An SVG map showing Germany's federal states and forest areas. Scrolling changes the display from all forests to forests larger than 50 square kilometres.</desc>
+          <defs class="forest-map__mesh-defs"></defs>
+          <g class="forest-map__layer forest-map__layer--barriers"></g>
+          <g class="forest-map__layer forest-map__layer--all"></g>
+          <g class="forest-map__layer forest-map__layer--large"></g>
+          <g class="forest-map__layer forest-map__layer--zoom-detail"></g>
+          <g class="forest-map__layer forest-map__layer--mesh"></g>
+          <g class="forest-map__layer forest-map__layer--states"></g>
+          <g class="forest-map__layer forest-map__layer--mesh-labels"></g>
+          <g class="forest-map__layer forest-map__layer--ranking"></g>
+        </svg>
+        <div class="forest-map__mesh-labels-html" aria-hidden="true"></div>
+        <div class="forest-map__ranking-labels-html" aria-hidden="true"></div>
+        <div class="forest-map__mesh-legend" aria-label="Mesh-size scale from highest to lowest">
+          <div class="forest-map__mesh-legend-title">
+            <img src="/media/meshsize-purple.svg" alt="" />
+            <span>Mesh size</span>
+          </div>
+          <div class="forest-map__mesh-legend-scale">
+            <span>Highest mesh size</span>
+            <span class="forest-map__mesh-legend-arrow" aria-hidden="true">→</span>
+            <span>Lowest mesh size</span>
+          </div>
+        </div>
+        <div class="pseudorelief-model" aria-label="Rotating three-dimensional pseudorelief model"></div>
+        <span class="pseudorelief-callout__label">Stub roads</span>
+        <svg class="pseudorelief-callout" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <g class="pseudorelief-callout__leader pseudorelief-callout__leader--one">
+            <path data-stub-path="0" d="M 8 15 L 28 15 L 54 27" />
+            <circle data-stub-dot="0" cx="54" cy="27" r="0.45" />
+          </g>
+          <g class="pseudorelief-callout__leader pseudorelief-callout__leader--two">
+            <path data-stub-path="1" d="M 28 15 L 42 36" />
+            <circle data-stub-dot="1" cx="42" cy="36" r="0.45" />
+          </g>
+          <g class="pseudorelief-callout__leader pseudorelief-callout__leader--three">
+            <path data-stub-path="2" d="M 28 15 L 38 27" />
+            <circle data-stub-dot="2" cx="38" cy="27" r="0.45" />
+          </g>
+        </svg>
+        <div class="pseudorelief-calibration" hidden>
+          <strong>Stub-road anchors</strong>
+          <span>Click three locations on the top model.</span>
+          <button type="button" data-reset-stub-anchors>Reset points</button>
+        </div>
+        <div class="pseudorelief-annotation pseudorelief-annotation--low">
+          <strong>Low pseudo volume</strong>
+          <span>High potential of human disturbance</span>
+        </div>
+        <div class="pseudorelief-annotation pseudorelief-annotation--high">
+          <strong>High pseudo volume</strong>
+          <span>Far from human disturbance</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="map-section__triggers" aria-hidden="true">
+    <div class="map-scroll-step" data-map-step="-2"></div>
+    <div class="map-scroll-step" data-map-step="-1"></div>
+    <div id="fragmentation" class="map-scroll-step" data-map-step="0"></div>
+    <div class="map-scroll-step" data-map-step="1"></div>
+    <div class="map-scroll-step" data-map-step="2"></div>
+    <div class="map-scroll-step" data-map-step="3"></div>
+    <div class="map-scroll-step" data-map-step="4"></div>
+    <div class="map-scroll-step map-scroll-step--hold" data-map-step="5"></div>
+    <div class="map-scroll-step" data-map-step="6"></div>
+    <div class="map-scroll-step" data-map-step="7"></div>
+    ${window.matchMedia("(max-width: 900px)").matches ? '<div class="map-scroll-step map-scroll-step--mobile-mesh-detail" data-map-step="7.5"></div>' : ""}
+    <div class="map-scroll-step" data-map-step="8"></div>
+    <div class="map-scroll-step" data-map-step="9"></div>
+    <div class="map-scroll-step" data-map-step="10"></div>
+    <div class="map-scroll-step" data-map-step="11"></div>
+    <div class="map-scroll-step" data-map-step="12"></div>
+    <div class="map-scroll-step" data-map-step="13"></div>
+  </div>
+`;
+  return section;
+}
+
+function createExploreData() {
+  const section = document.createElement("section");
+  section.id = "explore-data";
+  section.className = "story-section explore-data-section";
+  section.dataset.theme = "light";
+  section.dataset.section = "explore-data";
+  return section;
+}
+// Create the final eight-image sequence and its four centered text passages.
+function createEndSequence() {
+  const section = document.createElement("section");
+  section.id = "conclusion";
+  section.className = "story-section end-sequence-section";
+  section.dataset.theme = "light";
+  section.dataset.section = "explore-data";
+  const media = Array.from({ length: 8 }, (_, index) => {
+    const classes = `end-sequence-section__media${index === 0 ? " is-revealed" : ""}`;
+    if (index === 7) {
+      return `
+        <picture class="${classes}" data-end-media="${index}" style="--end-layer: ${index}">
+          <source media="(max-width: 700px)" srcset="/media/end8_mobile.webp" />
+          <img src="/media/end8.webp" alt="" />
+        </picture>
+      `;
+    }
+    return `<img class="${classes}" data-end-media="${index}" src="/media/end${index + 1}.webp" alt="" style="--end-layer: ${index}" />`;
+  }).join("");
+  section.innerHTML = `
+    <div class="end-sequence-section__stage">
+      <div class="end-sequence-section__media-stack" aria-hidden="true">${media}</div>
+      <div class="end-sequence-section__texts">
+        <p class="end-sequence-section__text" data-end-text="0">Although the two German federal states (Bundesländer) along the lynx migration route are generally less fragmented compared to others, there are still a significant number of barriers along the route that are often impassable and constitute a major obstacle to successful movement and dispersal for animals.</p>
+        <p class="end-sequence-section__text" data-end-text="1">Preserving large, unfragmented forests is essential for wildlife and the environment. Yet, modern society is under constant pressure from competing land use demands, and the expansion of infrastructure risks further severing ecological connections and increasing the barrier strength of existing corridors.</p>
+        <p class="end-sequence-section__text" data-end-text="2">Mitigation measures such as wildlife bridges, carefully located solar parks, and reduced deforestation are therefore key to preventing further fragmentation, so that nature and wildlife can thrive.</p>
+        <p class="end-sequence-section__text end-sequence-section__text--final" data-end-text="3">All actors with their individual needs within the interconnected synergistic natural system should be treated as equals.</p>
+      </div>
+    </div>
+  `;
+  return section;
+}
+// Return every page section in its final document order.
+export function createSections() {
+  return [createIntro(), createImageSequence(), ...createStorySections(), createMap(), createExploreData(), createEndSequence()];
+}

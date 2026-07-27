@@ -1,0 +1,133 @@
+import { sections } from "./content.js";
+
+export function createMainNavigation() {
+  const nav = document.createElement("nav");
+  nav.className = "main-nav";
+  nav.setAttribute("aria-label", "Story chapters");
+  sections.forEach((section, index) => {
+    const link = document.createElement("a");
+    link.className = "main-nav__item";
+    link.href = `#${section.id}`;
+    link.dataset.sectionLink = section.id;
+    link.innerHTML = `
+    <span class="main-nav__number">${index + 1}</span>
+    <span class="main-nav__label">${section.navigationLabel}</span>
+  `;
+    nav.append(link);
+  });
+  return nav;
+}
+
+// Build the side navigation and connect theme-aware logo and sound behavior.
+export function createSideNavigation() {
+  const aside = document.createElement("aside");
+  aside.className = "side-nav side-nav--delayed";
+  aside.setAttribute("aria-label", "Project information");
+  aside.innerHTML = `
+  <a class="side-nav__logo" href="#introduction" aria-label="Fragmented Reality home">
+    <img class="side-nav__logo-image" src="/media/Logo_DM.png" alt="" />
+  </a>
+  <nav class="side-nav__links" aria-label="Additional information">
+    <a class="side-nav__link side-nav__link--brand" href="#introduction">Fragmented Reality</a>
+    <a class="side-nav__link" href="#about">About</a>
+    <a class="side-nav__link" href="#references">References</a>
+    <a class="side-nav__link" href="#sources">Sources</a>
+  </nav>
+  <div class="sound-control">
+    <button class="sound-control__button is-enabled" type="button" aria-label="Disable sound" aria-pressed="true">
+      <img src="/media/sound_on_DM.svg" alt="" />
+    </button>
+    <p class="sound-control__hint">This website uses sound.<br />You can disable it here.</p>
+  </div>
+`;
+  const button = aside.querySelector(".sound-control__button");
+  const logoLink = aside.querySelector(".side-nav__logo");
+  const logoImage = aside.querySelector(".side-nav__logo-image");
+  // Select the bright-mode (BM) or dark-mode (DM) logo for the current section.
+  const updateLogo = () => {
+    if (!logoImage) return;
+    const theme = document.querySelector(".site-shell")?.dataset.theme === "light" ? "BM" : "DM";
+    logoImage.src = `/media/Logo_${theme}.png`;
+  };
+  // Use the opposite logo artwork as the desktop hover state.
+  const invertLogo = () => {
+    if (!logoImage) return;
+    const oppositeTheme = document.querySelector(".site-shell")?.dataset.theme === "light" ? "DM" : "BM";
+    logoImage.src = `/media/Logo_${oppositeTheme}.png`;
+  };
+  const supportsTrueHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  if (supportsTrueHover) {
+    logoLink?.addEventListener("pointerenter", invertLogo);
+    logoLink?.addEventListener("pointerleave", updateLogo);
+    logoLink?.addEventListener("focus", invertLogo);
+    logoLink?.addEventListener("blur", updateLogo);
+  }
+  logoImage?.addEventListener("error", () => {
+    if (!logoImage.src.endsWith("/media/Logo_DM.png")) logoImage.src = "/media/Logo_DM.png";
+  });
+  logoImage?.addEventListener("logothemechange", updateLogo);
+  // Keep the speaker artwork synchronized with sound state and page theme.
+  const updateIcon = () => {
+    const icon = button?.querySelector("img");
+    if (!button || !icon) return;
+    const isEnabled = button.classList.contains("is-enabled");
+    const theme = document.querySelector(".site-shell")?.dataset.theme === "light" ? "BM" : "DM";
+    icon.src = `/media/sound_${isEnabled ? "on" : "off"}_${theme}.svg`;
+  };
+  const soundIcon = button?.querySelector("img");
+  soundIcon?.addEventListener("error", () => {
+    const isEnabled = button?.classList.contains("is-enabled");
+    const fallback = `/media/sound_${isEnabled ? "on" : "off"}.svg`;
+    if (!soundIcon.src.endsWith(fallback.replace("./", "/"))) soundIcon.src = fallback;
+  });
+  // One button controls the muted state of every video on the page.
+  button?.addEventListener("click", () => {
+    const videos = document.querySelectorAll("video");
+    const soundWillBeEnabled = !button.classList.contains("is-enabled");
+    videos.forEach((video) => {
+      video.muted = !soundWillBeEnabled;
+    });
+    button.classList.toggle("is-enabled", soundWillBeEnabled);
+    button.setAttribute("aria-pressed", String(soundWillBeEnabled));
+    button.setAttribute("aria-label", soundWillBeEnabled ? "Disable sound" : "Enable sound");
+    updateIcon();
+    if (soundWillBeEnabled) {
+      const visibleVideo = Array.from(videos).find((video) => {
+        const rect = video.getBoundingClientRect();
+        return rect.bottom > 0 && rect.top < window.innerHeight && getComputedStyle(video).opacity !== "0";
+      });
+      if (visibleVideo) void visibleVideo.play().catch(() => void 0);
+    }
+  });
+  button?.addEventListener("soundthemechange", updateIcon);
+  const logo = aside.querySelector(".side-nav__logo");
+  const closeMobileMenu = () => {
+    aside.classList.remove("is-open");
+    logo?.setAttribute("aria-expanded", "false");
+  };
+  // Below 900px the logo becomes the button that opens the narrow side menu.
+  logo?.addEventListener("click", (event) => {
+    if (!window.matchMedia("(max-width: 900px)").matches) return;
+    event.preventDefault();
+    const isOpen = aside.classList.toggle("is-open");
+    logo.setAttribute("aria-expanded", String(isOpen));
+  });
+  aside.querySelectorAll(".side-nav__link").forEach((link) => {
+    link.addEventListener("click", closeMobileMenu);
+  });
+  document.addEventListener("click", (event) => {
+    if (!window.matchMedia("(max-width: 900px)").matches) return;
+    if (event.target instanceof Node && !aside.contains(event.target)) closeMobileMenu();
+  });
+  return aside;
+}
+
+// Return the reusable arrow link shown at important chapter transitions.
+export function createScrollArrow(target) {
+  const link = document.createElement("a");
+  link.className = "scroll-arrow";
+  link.href = target;
+  link.setAttribute("aria-label", "Continue to the next chapter");
+  link.innerHTML = '<span>Scroll</span><span aria-hidden="true">\u2193</span>';
+  return link;
+}
