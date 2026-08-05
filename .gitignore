@@ -8,4 +8,3 @@ src/data/
 src/assets/raster-originals/
 archive_local/
 *.qmd
-.DS_Store
