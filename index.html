@@ -1,62 +1,21 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title>Scrollama: Basic Example</title>
-    <meta name="description" content="Scrollama: Basic Example" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="style.css" />
-    <style>
-      #scrolly {
-        position: relative;
-      }
-
-      article {
-        position: relative;
-        padding: 0 1rem;
-        margin: 0 auto;
-        width: 33%;
-      }
-
-      .step {
-        margin: 2rem auto 4rem auto;
-        background-color: #3b3b3b;
-        color: #fff;
-      }
-
-      .step.is-active {
-        background-color: goldenrod;
-        color: #3b3b3b;
-      }
-
-      .step p {
-        text-align: center;
-        padding: 1rem;
-        font-size: 1.5rem;
-      }
-    </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Fragmented Reality — a scrollytelling experience." />
+    <title>Fragmented Reality</title>
+    <link rel="preload" as="image" href="/media/barriers_1.webp" fetchpriority="high" />
+    <link rel="preload" as="fetch" href="/data/wald_expo/deut.topojson" type="application/json" crossorigin />
+    <link rel="preload" as="fetch" href="/data/wald_expo/wald_alles_balanced.topojson" type="application/json" crossorigin />
+    <link rel="preload" as="fetch" href="/data/wald_expo/wald_50.topojson" type="application/json" crossorigin />
+    <link rel="preload" as="fetch" href="/data/wald_expo/wald_50_zoom.topojson" type="application/json" crossorigin />
+    <link rel="stylesheet" href="./src/styles/global.css" />
+    <link rel="stylesheet" href="./src/styles/navigation.css" />
+    <link rel="stylesheet" href="./src/styles/sections.css" />
   </head>
-
   <body>
-    
-    <main>
-      <nav>
-        <a href="https://github.com/russellgoldenberg/scrollama">scrollama.js</a>
-        <div class="nav__examples">
-          <p>Examples:</p>
-          <a href="basic.html">Basic</a>
-          <a href="progress.html">Progress</a>
-          <a href="sticky-side.html">Sticky Side</a>
-          <a href="sticky-overlay.html">Sticky Overlay</a>
-        </div>
-      </nav>
-      <section id="intro">
-        <h1 class="intro__hed">Stripped-down Scrollama.js examples</h1>
-      </section>
-    </main>
-
-    <script src="https://unpkg.com/intersection-observer"></script>
-    <script src="https://unpkg.com/scrollama"></script>
+    <div id="app"></div>
+    <script type="module" src="./script.js"></script>
   </body>
 </html>
