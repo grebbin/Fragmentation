@@ -7,6 +7,11 @@ barrierRasterPreload.fetchPriority = "high";
 barrierRasterPreload.src = "/media/barriers_1.webp";
 const barrierRasterReady = barrierRasterPreload.decode().catch(() => undefined);
 
+const routeRasterPreload = new Image();
+routeRasterPreload.decoding = "async";
+routeRasterPreload.src = "/media/route_overlay.png";
+const routeRasterReady = routeRasterPreload.decode().catch(() => undefined);
+
 export async function setupForestMap(onReady) {
   const root = document.querySelector(".forest-map");
   const svg = root?.querySelector(".forest-map__svg");
@@ -14,15 +19,16 @@ export async function setupForestMap(onReady) {
   if (!root || !svg) return;
 
   try {
-    const [germanyTopology, barrierWorldFile, allForestsTopology, largeForestsTopology, zoomForestsTopology, meshCsv] = await Promise.all([
+    const [germanyTopology, barrierWorldFile, routeWorldFile, allForestsTopology, largeForestsTopology, zoomForestsTopology, meshCsv] = await Promise.all([
       json("/data/wald_expo/deut.topojson"),
       fetch("/media/barriers_1.pgw").then((response) => response.text()),
+      fetch("/media/route_overlay.pgw").then((response) => response.text()),
       json("/data/wald_expo/wald_alles_balanced.topojson"),
       json("/data/wald_expo/wald_50.topojson"),
       json("/data/wald_expo/wald_50_zoom.topojson"),
       fetch("/data/U06KG__2024.csv").then((response) => response.text())
     ]);
-    await barrierRasterReady;
+    await Promise.all([barrierRasterReady, routeRasterReady]);
     const germany = feature(germanyTopology, germanyTopology.objects.data);
     const allForests = feature(allForestsTopology, allForestsTopology.objects.data);
     const largeForests = feature(largeForestsTopology, largeForestsTopology.objects.data);
@@ -62,8 +68,11 @@ export async function setupForestMap(onReady) {
       .trim()
       .split(/\s+/)
       .map(Number);
-    const imagePixelWidth = 6000;
-    const imagePixelHeight = 6000;
+    // Derive the raster extent from the decoded file so replacing the
+    // georeferenced barrier image does not require a matching pixel size.
+    const imagePixelWidth = barrierRasterPreload.naturalWidth;
+    const imagePixelHeight = barrierRasterPreload.naturalHeight;
+    if (!imagePixelWidth || !imagePixelHeight) throw new Error("Barrier raster dimensions are unavailable.");
     const sourceMinX = upperLeftX - pixelWidth / 2;
     const sourceMaxY = upperLeftY - pixelHeight / 2;
     const sourceMaxX = sourceMinX + pixelWidth * imagePixelWidth;
@@ -91,6 +100,29 @@ export async function setupForestMap(onReady) {
       .datum(allForests)
       .attr("class", "forest-map__forests forest-map__forests--all")
       .attr("d", path);
+
+    const [routePixelWidth, , , routePixelHeight, routeUpperLeftX, routeUpperLeftY] = routeWorldFile
+      .trim()
+      .split(/\s+/)
+      .map(Number);
+    const routeImageWidth = routeRasterPreload.naturalWidth;
+    const routeImageHeight = routeRasterPreload.naturalHeight;
+    if (!routeImageWidth || !routeImageHeight) throw new Error("Route raster dimensions are unavailable.");
+    const routeMinX = routeUpperLeftX - routePixelWidth / 2;
+    const routeMaxY = routeUpperLeftY - routePixelHeight / 2;
+    const routeMaxX = routeMinX + routePixelWidth * routeImageWidth;
+    const routeMinY = routeMaxY + routePixelHeight * routeImageHeight;
+    const [routeX0, routeY0] = projection([routeMinX, routeMaxY]);
+    const [routeX1, routeY1] = projection([routeMaxX, routeMinY]);
+    select(svg).select(".forest-map__layer--route")
+      .append("image")
+      .attr("class", "forest-map__route-raster")
+      .attr("href", "/media/route_overlay.png")
+      .attr("x", routeX0)
+      .attr("y", routeY0)
+      .attr("width", routeX1 - routeX0)
+      .attr("height", routeY1 - routeY0)
+      .attr("preserveAspectRatio", "none");
     select(svg).select(".forest-map__layer--large")
       .selectAll("path")
       .data(largeForests.features)

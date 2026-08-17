@@ -1,7 +1,84 @@
 import scrollama from "../../vendor/scrollama/index.js";
+import { stories } from "./content.js";
 import { clamp, lerp } from "./utils.js";
 
 let updatePseudorelief = () => {};
+let activeStoryIndex = -1;
+const playedStoryOnceSounds = new Set();
+
+function isSoundEnabled() {
+  return document.querySelector(".sound-control__button")?.classList.contains("is-enabled") ?? false;
+}
+
+function hasStoryAnimation(index) {
+  const animation = stories[index]?.animation;
+  return Boolean(
+    animation?.src
+    && Number.isFinite(animation.start)
+    && Number.isFinite(animation.end)
+    && animation.end > animation.start
+  );
+}
+
+// Start the visual and sounds belonging to the story Scrollama has reached.
+function activateStory(index, { restartAnimation = true } = {}) {
+  const journey = document.querySelector(".story-chapter-section--journey");
+  if (!journey || !Number.isFinite(index)) return;
+  activeStoryIndex = index;
+  journey.querySelectorAll("[data-story-media]").forEach((item) => {
+    const isActive = Number(item.dataset.storyMedia) === index;
+    item.classList.toggle("is-active", isActive);
+    const loop = item.querySelector("audio[data-story-loop]");
+    if (loop) {
+      if (isActive && isSoundEnabled()) void loop.play().catch(() => void 0);
+      else {
+        loop.pause();
+        if (!isActive) loop.currentTime = 0;
+      }
+    }
+  });
+  const animationWindow = stories[index]?.animation;
+  const sharedAnimation = journey.querySelector("[data-story-shared-animation]");
+  const hasAnimation = Boolean(sharedAnimation && hasStoryAnimation(index));
+  if (sharedAnimation) {
+    if (hasAnimation) {
+      sharedAnimation.muted = !isSoundEnabled();
+      sharedAnimation.dataset.storyAnimationEnd = String(animationWindow.end);
+      if (restartAnimation) sharedAnimation.currentTime = animationWindow.start;
+      void sharedAnimation.play().catch(() => void 0);
+    } else {
+      sharedAnimation.pause();
+      delete sharedAnimation.dataset.storyAnimationEnd;
+    }
+  }
+  if (isSoundEnabled() && !playedStoryOnceSounds.has(index)) {
+    const once = journey.querySelector(`[data-story-once="${index}"]`);
+    if (once) {
+      once.currentTime = 0;
+      void once.play().then(() => playedStoryOnceSounds.add(index)).catch(() => void 0);
+    }
+  }
+  updateStories();
+}
+
+function syncStorySound({ enabled }) {
+  if (activeStoryIndex >= 0) activateStory(activeStoryIndex, { restartAnimation: false });
+  if (!enabled) document.querySelectorAll("audio[data-story-once]").forEach((sound) => sound.pause());
+}
+
+function setupSharedStoryAnimation() {
+  const animation = document.querySelector("[data-story-shared-animation]");
+  if (!animation) return;
+  animation.preload = "auto";
+  animation.load();
+  animation.addEventListener("timeupdate", () => {
+    const end = Number(animation.dataset.storyAnimationEnd);
+    if (Number.isFinite(end) && animation.currentTime >= end) {
+      animation.currentTime = end;
+      animation.pause();
+    }
+  });
+}
 
 export function registerPseudoreliefUpdater(updater) {
   updatePseudorelief = updater;
@@ -132,6 +209,11 @@ function updateImageSequence() {
 function updateStories() {
   const journey = document.querySelector(".story-chapter-section--journey");
   if (!journey) return;
+  const journeyRect = journey.getBoundingClientRect();
+  const journeyIsEntering = journeyRect.top < window.innerHeight && journeyRect.bottom > 0;
+  // The first trigger sits inside the chapter, so start story 1 as soon as the
+  // chapter enters the viewport instead of waiting for an additional scroll.
+  if (activeStoryIndex < 0 && journeyIsEntering) activateStory(0);
   const cards = journey.querySelectorAll("[data-story-card]");
   const storyRange = 0.72;
   const storySpan = storyRange / cards.length;
@@ -148,10 +230,16 @@ function updateStories() {
     card.style.setProperty("--story-copy-offset", "0px");
     card.style.setProperty("--facts-reveal", Math.min(factsIn, factsOut).toFixed(3));
   });
-  const media = journey.querySelector(".story-chapter-section__media img");
   const mediaReveal = clamp(progress / (storySpan * 0.5));
   const outroReveal = clamp((progress - storyRange) / 0.1);
-  if (media) media.style.opacity = (mediaReveal * (1 - outroReveal)).toFixed(3);
+  const visibleStoryIndex = activeStoryIndex >= 0 ? activeStoryIndex : 0;
+  const storyHasAnimation = hasStoryAnimation(visibleStoryIndex);
+  journey.querySelectorAll("[data-story-media]").forEach((media) => {
+    const isActive = Number(media.dataset.storyMedia) === visibleStoryIndex;
+    media.style.opacity = isActive ? (mediaReveal * (1 - outroReveal)).toFixed(3) : "0";
+  });
+  const sharedAnimation = journey.querySelector("[data-story-shared-animation]");
+  if (sharedAnimation) sharedAnimation.style.opacity = storyHasAnimation ? (mediaReveal * (1 - outroReveal)).toFixed(3) : "0";
   const storyOutroImage = document.querySelector(".story-outro__image");
   const storyOutroText = document.querySelector(".story-outro__text");
   const storyOutroArrow = document.querySelector(".story-outro__arrow");
@@ -372,10 +460,15 @@ function applyMapStep(stepIndex, stepProgress = 1) {
         height
       };
     };
-    const closeFrame = frameForScale(0.38);
+    const closeFrame = frameForScale(0.52);
     const wideFrame = frameForScale(0.82);
     const isBarrierTransition = stepIndex <= 0;
     const barrierZoomOut = stepIndex < -1 ? 0 : stepIndex === -1 ? arrival : 1;
+    // Keep the breakdown readable for the whole barrier zoom-out; it exits
+    // only with the following transition to the all-forests map.
+    const barrierSummaryReveal = barrierReveal;
+    forestMap.style.setProperty("--barrier-summary-reveal", barrierSummaryReveal.toFixed(3));
+    forestMap.classList.toggle("has-barrier-summary", barrierSummaryReveal > 0.01);
     const forestTransition = stepIndex < 0 ? 0 : stepIndex === 0 ? arrival : 1;
     const barrierFrame = {
       x: lerp(closeFrame.x, wideFrame.x, barrierZoomOut),
@@ -439,6 +532,7 @@ function updateEndSequence() {
 }
 // Connect Scrollama, links, resizing, and all animation update functions.
 export function setupScrollScenes() {
+  setupSharedStoryAnimation();
   setupIntroVideo();
   document.querySelectorAll(".map-section__mark").forEach((image) => {
     image.addEventListener("error", () => image.classList.add("has-error"));
@@ -494,6 +588,12 @@ export function setupScrollScenes() {
   };
 
   if (typeof scrollama === "function") {
+    // Each story has its own offset (`scrollOffset` in content.js). Reaching that
+    // line swaps the visual, starts its animation and updates the story sound.
+    const storyScroller = scrollama();
+    storyScroller
+      .setup({ step: "[data-story-trigger]", offset: 0.55, order: true })
+      .onStepEnter(({ element }) => activateStory(Number(element.dataset.storyTrigger)));
     // This instance controls the detailed numbered steps inside the map.
     const mapScroller = scrollama();
     mapScroller
@@ -525,16 +625,19 @@ export function setupScrollScenes() {
       .onStepProgress(requestUpdate)
       .onStepExit(requestUpdate);
     window.addEventListener("resize", () => {
+      storyScroller.resize();
       mapScroller.resize();
       sceneScroller.resize();
       requestUpdate();
     });
     window.__mapScroller = mapScroller;
+    window.__storyScroller = storyScroller;
     window.__sceneScroller = sceneScroller;
   } else {
     window.addEventListener("scroll", requestUpdate, { passive: true });
     window.addEventListener("resize", requestUpdate);
   }
+  window.addEventListener("soundstatechange", (event) => syncStorySound(event.detail));
   update();
 }
 
