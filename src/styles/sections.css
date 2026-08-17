@@ -96,7 +96,7 @@
   left: 50%;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   opacity: 0;
   transform: translateX(-50%) translateY(8px);
@@ -246,6 +246,15 @@
   min-height: 650svh;
 }
 
+/* Real scroll ranges for the visually stacked story cards; used by Scrollama. */
+.story-scroll-trigger {
+  position: absolute;
+  top: var(--story-trigger-start);
+  width: 1px;
+  height: var(--story-trigger-size);
+  pointer-events: none;
+}
+
 .story-shared-video {
   position: fixed;
   inset: 0 0 0 var(--side-nav-width);
@@ -343,12 +352,30 @@
   background: transparent;
 }
 
-.story-chapter-section__media > img {
+.story-chapter-section__media-item {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 180ms linear;
+}
+
+.story-chapter-section__media-item.is-active {
+  opacity: 1;
+}
+
+.story-chapter-section__shared-animation,
+.story-chapter-section__story-animation {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 180ms linear;
+  pointer-events: none;
+}
+
+.story-chapter-section__visual {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0;
-  transition: opacity 180ms linear;
 }
 
 .story-outro {
@@ -904,6 +931,7 @@
   --large-forest-reveal: 0;
   --forest-zoom-detail: 0;
   --barrier-reveal: 0;
+  --barrier-summary-reveal: 0;
   --forest-stage-reveal: 0;
   --pseudorelief-reveal: 0;
   --mesh-reveal: 0;
@@ -928,6 +956,83 @@
 
 .forest-map__barrier-raster {
   image-rendering: auto;
+}
+
+.forest-map__barrier-summary {
+  position: absolute;
+  right: 28px;
+  bottom: 28px;
+  left: 28px;
+  z-index: 2;
+  display: flex;
+  min-height: 76px;
+  overflow: hidden;
+  border-radius: 2px;
+  opacity: var(--barrier-summary-reveal);
+  pointer-events: none;
+  transition: opacity 160ms linear;
+  will-change: opacity;
+}
+
+.forest-map.has-barrier-summary .forest-map__barrier-summary {
+  pointer-events: auto;
+}
+
+.forest-map__barrier-category {
+  display: flex;
+  flex: var(--barrier-share) 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  padding: 8px 12px;
+  border-right: 1px solid rgb(255 255 255 / 45%);
+  font: 500 clamp(13px, 1.25vw, 18px)/1.25 'Work Sans', Arial, sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: flex 220ms ease, padding 220ms ease;
+}
+
+.forest-map__barrier-category:last-child {
+  border-right: 0;
+}
+
+.forest-map__barrier-category strong {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.forest-map__barrier-category span {
+  margin-top: 5px;
+  white-space: nowrap;
+}
+
+.forest-map__barrier-category:not(.forest-map__barrier-category--streets):hover,
+.forest-map__barrier-category:not(.forest-map__barrier-category--streets):focus-visible {
+  flex: 0 0 min(42%, 300px);
+  padding-inline: 16px;
+  z-index: 1;
+}
+
+.forest-map__barrier-category--streets {
+  color: #fff;
+  background: #000;
+}
+
+.forest-map__barrier-category--railways {
+  color: #000;
+  background: #1db1b9;
+}
+
+.forest-map__barrier-category--settlements {
+  color: #000;
+  background: #d19eaa;
+}
+
+.forest-map__barrier-category--airports {
+  color: #000;
+  background: #e0d9c6;
 }
 
 .forest-map__status {
@@ -1074,6 +1179,17 @@ body:has(.pseudorelief-calibration:not([hidden])) .pseudorelief-model {
 
 .forest-map__layer--all {
   opacity: calc(var(--forest-stage-reveal) * (1 - var(--large-forest-reveal)) * (1 - var(--ranking-reveal)));
+}
+
+.forest-map__layer--route {
+  opacity: calc(var(--forest-stage-reveal) * (1 - var(--large-forest-reveal)) * (1 - var(--ranking-reveal)));
+  pointer-events: none;
+  transition: opacity var(--scrolly-media-transition);
+  will-change: opacity;
+}
+
+.forest-map__route-raster {
+  image-rendering: auto;
 }
 
 .forest-map__layer--large {
