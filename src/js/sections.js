@@ -74,28 +74,11 @@ function createStorySections() {
       </ul>
     </article>
   `).join("");
-  const sharedAnimationSrc = stories.find((story) => story.animation?.src)?.animation.src;
-  const media = stories.map((story, index) => {
-    const visual = `<img class="story-chapter-section__visual" src="${story.image}" alt="" />`;
-    const loopSound = story.loopSound
-      ? `<audio data-story-loop="${index}" src="${story.loopSound}" loop preload="metadata"></audio>`
-      : "";
-    const onceSound = story.onceSound
-      ? `<audio data-story-once="${index}" src="${story.onceSound}" preload="metadata"></audio>`
-      : "";
-    return `<div class="story-chapter-section__media-item" data-story-media="${index}">${visual}${loopSound}${onceSound}</div>`;
-  }).join("");
-  // The cards are visually stacked, so separate document-positioned trigger
-  // elements give Scrollama one real scroll range per story.
-  const triggers = stories.map((story, index) => `
-    <div class="story-scroll-trigger" data-story-trigger="${index}" data-offset="${story.scrollOffset ?? 0.55}" style="--story-trigger-start: ${index * (72 / stories.length)}%; --story-trigger-size: ${72 / stories.length}%;" aria-hidden="true"></div>
-  `).join("");
   section.innerHTML = `
     <div class="story-chapter-section__stage">
       <div class="story-chapter-section__panel">${cards}</div>
       <div class="story-chapter-section__media" aria-hidden="true">
-        ${media}
-        ${sharedAnimationSrc ? `<video class="story-chapter-section__visual story-chapter-section__shared-animation" data-story-shared-animation src="${sharedAnimationSrc}" poster="${stories[0]?.image ?? ""}" muted playsinline preload="auto" fetchpriority="high" aria-label="Story animation"></video>` : ""}
+        <img src="/media/story_placeholder.webp" alt="" />
       </div>
       <div class="story-outro">
         <picture>
@@ -113,7 +96,6 @@ function createStorySections() {
         </a>
       </div>
     </div>
-    ${triggers}
   `;
   return [section];
 }
@@ -178,6 +160,19 @@ function createMap() {
           <p class="map-section__reveal-text map-section__mesh-bayern-time">It would take around <strong>49</strong> minutes to walk undisturbed in Bayern without encountering any fragmentation barriers.</p>
           <p class="map-section__reveal-text map-section__mesh-thueringen-time">In Thüringen it would take around <strong>46</strong> minutes.</p>
         </div>
+        <div class="map-section__reveal-text map-section__explore-data-copy">
+          <h2 class="map-section__explore-data-heading">Explore the Data</h2>
+          <p class="map-section__explore-data-body">
+            You may now explore the ranking
+            <br /><br />
+            and explore <strong>the unfragmented forests in your state.</strong>
+          </p>
+          <p class="map-section__explore-data-body">or finish the <strong>story</strong></p>
+          <a class="explore-data__continue" href="#conclusion" aria-label="Finish the story">
+            <span aria-hidden="true">&darr;</span>
+            <span>Finish Story</span>
+          </a>
+        </div>
       </div>
     </div>
     <div class="map-section__media">
@@ -189,7 +184,6 @@ function createMap() {
           <defs class="forest-map__mesh-defs"></defs>
           <g class="forest-map__layer forest-map__layer--barriers"></g>
           <g class="forest-map__layer forest-map__layer--all"></g>
-          <g class="forest-map__layer forest-map__layer--route"></g>
           <g class="forest-map__layer forest-map__layer--large"></g>
           <g class="forest-map__layer forest-map__layer--zoom-detail"></g>
           <g class="forest-map__layer forest-map__layer--mesh"></g>
@@ -197,30 +191,18 @@ function createMap() {
           <g class="forest-map__layer forest-map__layer--mesh-labels"></g>
           <g class="forest-map__layer forest-map__layer--ranking"></g>
         </svg>
-        <div class="forest-map__barrier-summary" aria-label="Barriers encountered along the route">
-          <div class="forest-map__barrier-category forest-map__barrier-category--streets" style="--barrier-share: 56" tabindex="0" title="79 streets (56%)">
-            <strong>79 streets</strong>
-            <span>56%</span>
-          </div>
-          <div class="forest-map__barrier-category forest-map__barrier-category--settlements" style="--barrier-share: 34" tabindex="0" title="48 settlements (34%)">
-            <strong>48 settlements</strong>
-            <span>34%</span>
-          </div>
-          <div class="forest-map__barrier-category forest-map__barrier-category--railways" style="--barrier-share: 9" tabindex="0" title="13 railways (9%)">
-            <strong>13 railways</strong>
-            <span>9%</span>
-          </div>
-          <div class="forest-map__barrier-category forest-map__barrier-category--airports" style="--barrier-share: 1" tabindex="0" title="2 airports (1%)">
-            <strong>2 airports</strong>
-            <span>1%</span>
-          </div>
-        </div>
         <div class="forest-map__mesh-labels-html" aria-hidden="true"></div>
         <div class="forest-map__ranking-labels-html" aria-hidden="true"></div>
         <div class="forest-map__mesh-legend" aria-label="Mesh-size scale from highest to lowest">
-          <div class="forest-map__mesh-legend-title">
-            <img src="/media/meshsize-purple.svg" alt="" />
-            <span>Mesh size</span>
+          <div class="forest-map__mesh-legend-row">
+            <div class="forest-map__mesh-legend-title">
+              <img src="/media/meshsize-purple.svg" alt="" />
+              <span>Mesh size</span>
+            </div>
+            <div class="forest-map__mesh-legend-title forest-map__mesh-legend-forest-patch">
+              <i class="forest-map__mesh-legend-forest-patch-swatch" aria-hidden="true"></i>
+              <span>Forest Patch (&gt;50 km²)</span>
+            </div>
           </div>
           <div class="forest-map__mesh-legend-scale">
             <span>Highest mesh size</span>
@@ -278,6 +260,7 @@ function createMap() {
     <div class="map-scroll-step" data-map-step="11"></div>
     <div class="map-scroll-step" data-map-step="12"></div>
     <div class="map-scroll-step" data-map-step="13"></div>
+    <div class="map-scroll-step map-scroll-step--explore-data" data-map-step="14"></div>
   </div>
 `;
   return section;
@@ -289,6 +272,68 @@ function createExploreData() {
   section.className = "story-section explore-data-section";
   section.dataset.theme = "light";
   section.dataset.section = "explore-data";
+  section.innerHTML = `
+    <div class="explore-data" aria-live="polite">
+      <div class="explore-data__stage">
+        <div class="explore-data__copy">
+          <div class="explore-data__title-row">
+            <h2>
+              <span class="explore-data__marks" aria-hidden="true">
+                <img class="explore-data__mark" src="/media/meshsize-purple.svg" alt="" />
+              </span><span class="explore-data__title-text">Explore the Data</span>
+            </h2>
+          </div>
+          <p class="explore-data__intro-copy">Explore the "good forests" to the right.</p>
+          <p class="explore-data__overview-caption"></p>
+          <div class="explore-data__overview">
+            <img class="explore-data__overview-image" alt="" />
+            <div class="explore-data__overview-square" aria-hidden="true"></div>
+          </div>
+          <a class="explore-data__continue" href="#conclusion" aria-label="Finish the story">
+            <span>Finish Story</span>
+            <span aria-hidden="true">&darr;</span>
+          </a>
+        </div>
+        <div class="explore-data__media">
+          <button type="button" class="explore-data__header-back">
+            <span class="explore-data__header-back-arrow" aria-hidden="true">&larr;</span>
+            <span class="explore-data__state-name">—</span>
+          </button>
+          <div class="explore-data__cards">
+            <div class="explore-data__card" data-card="mesh_size">
+              <span class="explore-data__card-label">Mesh size</span>
+              <span class="explore-data__card-value">—</span>
+            </div>
+            <div class="explore-data__card" data-card="walking_time">
+              <span class="explore-data__card-label">Walking Time per Mesh patch</span>
+              <span class="explore-data__card-value">—</span>
+            </div>
+            <div class="explore-data__card" data-card="pct_unfragmented">
+              <span class="explore-data__card-label">Unfragmented forests &gt;50</span>
+              <span class="explore-data__card-value">Pending</span>
+            </div>
+            <div class="explore-data__card explore-data__card--highlight" data-card="unfragmented_km2">
+              <span class="explore-data__card-label">unfragmented forest</span>
+              <span class="explore-data__card-value">Pending</span>
+            </div>
+          </div>
+          <div class="explore-data__legend">
+            <span class="explore-data__legend-item"><i class="explore-data__legend-swatch explore-data__legend-swatch--mesh"></i>Mesh size</span>
+            <span class="explore-data__legend-item"><i class="explore-data__legend-swatch explore-data__legend-swatch--patch"></i>Forest Patch (&gt;50 km²)</span>
+          </div>
+          <div class="explore-data__map-wrap">
+            <svg class="explore-data__map-svg" viewBox="0 0 760 480" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="explore-data-map-title">
+              <title id="explore-data-map-title">Mesh size and large forest patches</title>
+              <defs class="explore-data__mesh-defs"></defs>
+              <g class="explore-data__layer explore-data__layer--boundary"></g>
+              <g class="explore-data__layer explore-data__layer--patches"></g>
+            </svg>
+            <p class="explore-data__status">Loading state data…</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
   return section;
 }
 // Create the final eight-image sequence and its four centered text passages.

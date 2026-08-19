@@ -35,6 +35,12 @@
   --color-forest: #63973e;
   --color-calibration-surface: rgb(248 248 248 / 94%);
 
+  /* Explore-the-data cards stay dark regardless of section theme */
+  --color-data-card-surface: #1e1b28;
+  --color-data-card-text: #fefefe;
+  --color-data-card-highlight-surface: #dcefce;
+  --color-data-card-highlight-text: #23431f;
+
   /* Desktop layout */
   --side-nav-width: 64px;
   --side-nav-collapsed-width: 40px;

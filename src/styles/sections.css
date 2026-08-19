@@ -96,7 +96,7 @@
   left: 50%;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   opacity: 0;
   transform: translateX(-50%) translateY(8px);
@@ -246,15 +246,6 @@
   min-height: 650svh;
 }
 
-/* Real scroll ranges for the visually stacked story cards; used by Scrollama. */
-.story-scroll-trigger {
-  position: absolute;
-  top: var(--story-trigger-start);
-  width: 1px;
-  height: var(--story-trigger-size);
-  pointer-events: none;
-}
-
 .story-shared-video {
   position: fixed;
   inset: 0 0 0 var(--side-nav-width);
@@ -352,30 +343,12 @@
   background: transparent;
 }
 
-.story-chapter-section__media-item {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  transition: opacity 180ms linear;
-}
-
-.story-chapter-section__media-item.is-active {
-  opacity: 1;
-}
-
-.story-chapter-section__shared-animation,
-.story-chapter-section__story-animation {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  transition: opacity 180ms linear;
-  pointer-events: none;
-}
-
-.story-chapter-section__visual {
+.story-chapter-section__media > img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 180ms linear;
 }
 
 .story-outro {
@@ -614,6 +587,15 @@
   height: 100svh;
 }
 
+/* Extra tall: the reveal animation itself only needs the first ~76% of a
+   step's height (see `arrival` in scrollytelling.js), so a plain 140svh
+   step leaves almost no room afterward to actually drag/click the now-
+   interactive ranking before the sticky panel releases into the next
+   section. This adds a generous dwell window after the reveal completes. */
+.map-scroll-step--explore-data {
+  height: 400svh;
+}
+
 .map-section__stage {
   position: sticky;
   top: 0;
@@ -783,6 +765,38 @@
   margin-top: var(--scrolly-facts-gap);
 }
 
+.map-section__explore-data-copy {
+  position: absolute;
+  right: 0;
+  left: 0;
+  transform: translateY(100vh);
+  transition: transform var(--scrolly-transition);
+  will-change: transform;
+}
+
+.map-section__explore-data-heading {
+  margin: 0 0 var(--scrolly-title-gap);
+  color: var(--color-title);
+  font-family: var(--font-ui);
+  font-size: var(--type-title);
+  font-weight: 700;
+}
+
+.map-section__explore-data-body {
+  margin: var(--scrolly-copy-gap) 0 0;
+  font-family: var(--font-story);
+  line-height: 1.35;
+}
+
+.map-section__explore-data-body strong {
+  font-weight: 700;
+  font-style: italic;
+}
+
+.map-section__explore-data-copy .explore-data__continue {
+  margin-top: var(--scrolly-facts-gap);
+}
+
 .map-section__marks {
   display: flex;
   margin: 0;
@@ -931,7 +945,6 @@
   --large-forest-reveal: 0;
   --forest-zoom-detail: 0;
   --barrier-reveal: 0;
-  --barrier-summary-reveal: 0;
   --forest-stage-reveal: 0;
   --pseudorelief-reveal: 0;
   --mesh-reveal: 0;
@@ -956,83 +969,6 @@
 
 .forest-map__barrier-raster {
   image-rendering: auto;
-}
-
-.forest-map__barrier-summary {
-  position: absolute;
-  right: 28px;
-  bottom: 28px;
-  left: 28px;
-  z-index: 2;
-  display: flex;
-  min-height: 76px;
-  overflow: hidden;
-  border-radius: 2px;
-  opacity: var(--barrier-summary-reveal);
-  pointer-events: none;
-  transition: opacity 160ms linear;
-  will-change: opacity;
-}
-
-.forest-map.has-barrier-summary .forest-map__barrier-summary {
-  pointer-events: auto;
-}
-
-.forest-map__barrier-category {
-  display: flex;
-  flex: var(--barrier-share) 1 0;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  overflow: hidden;
-  padding: 8px 12px;
-  border-right: 1px solid rgb(255 255 255 / 45%);
-  font: 500 clamp(13px, 1.25vw, 18px)/1.25 'Work Sans', Arial, sans-serif;
-  text-align: left;
-  cursor: pointer;
-  transition: flex 220ms ease, padding 220ms ease;
-}
-
-.forest-map__barrier-category:last-child {
-  border-right: 0;
-}
-
-.forest-map__barrier-category strong {
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.forest-map__barrier-category span {
-  margin-top: 5px;
-  white-space: nowrap;
-}
-
-.forest-map__barrier-category:not(.forest-map__barrier-category--streets):hover,
-.forest-map__barrier-category:not(.forest-map__barrier-category--streets):focus-visible {
-  flex: 0 0 min(42%, 300px);
-  padding-inline: 16px;
-  z-index: 1;
-}
-
-.forest-map__barrier-category--streets {
-  color: #fff;
-  background: #000;
-}
-
-.forest-map__barrier-category--railways {
-  color: #000;
-  background: #1db1b9;
-}
-
-.forest-map__barrier-category--settlements {
-  color: #000;
-  background: #d19eaa;
-}
-
-.forest-map__barrier-category--airports {
-  color: #000;
-  background: #e0d9c6;
 }
 
 .forest-map__status {
@@ -1181,17 +1117,6 @@ body:has(.pseudorelief-calibration:not([hidden])) .pseudorelief-model {
   opacity: calc(var(--forest-stage-reveal) * (1 - var(--large-forest-reveal)) * (1 - var(--ranking-reveal)));
 }
 
-.forest-map__layer--route {
-  opacity: calc(var(--forest-stage-reveal) * (1 - var(--large-forest-reveal)) * (1 - var(--ranking-reveal)));
-  pointer-events: none;
-  transition: opacity var(--scrolly-media-transition);
-  will-change: opacity;
-}
-
-.forest-map__route-raster {
-  image-rendering: auto;
-}
-
 .forest-map__layer--large {
   opacity: calc(var(--forest-stage-reveal) * var(--large-forest-reveal) * (1 - var(--forest-zoom-detail)) * (1 - var(--ranking-reveal)));
 }
@@ -1227,11 +1152,32 @@ body:has(.pseudorelief-calibration:not([hidden])) .pseudorelief-model {
   will-change: opacity;
 }
 
+.forest-map.is-ranking-interactive .forest-map__layer--ranking {
+  cursor: grab;
+  pointer-events: auto;
+}
+
 .forest-map__ranking-state {
   stroke: var(--color-map-outline);
   stroke-width: 1;
+  pointer-events: none;
   vector-effect: non-scaling-stroke;
   will-change: transform;
+}
+
+.forest-map.is-ranking-interactive .forest-map__ranking-state[data-state-code="09"] {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.forest-map__ranking-forest-patches {
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.forest-map__ranking-forest-patch {
+  fill: var(--color-forest);
+  stroke: none;
 }
 
 .forest-map__ranking-label {
@@ -1261,9 +1207,15 @@ body:has(.pseudorelief-calibration:not([hidden])) .pseudorelief-model {
   font-weight: 400;
   line-height: 1.2;
   white-space: nowrap;
+  pointer-events: none;
   transform: translate(-100%, 0) rotate(-55deg);
   transform-origin: right top;
   will-change: left, top, opacity;
+}
+
+.forest-map.is-ranking-interactive .forest-map__ranking-label-html[data-state-code="09"] {
+  cursor: pointer;
+  pointer-events: auto;
 }
 
 .forest-map__ranking-label-html strong {
@@ -1295,6 +1247,12 @@ body:has(.pseudorelief-calibration:not([hidden])) .pseudorelief-model {
   transition: opacity var(--scrolly-media-transition);
 }
 
+.forest-map__mesh-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
 .forest-map__mesh-legend-title,
 .forest-map__mesh-legend-scale {
   display: flex;
@@ -1310,6 +1268,19 @@ body:has(.pseudorelief-calibration:not([hidden])) .pseudorelief-model {
   width: auto;
   height: 1.2em;
   object-fit: contain;
+}
+
+.forest-map__mesh-legend-forest-patch {
+  opacity: var(--explore-data-reveal, 0);
+  transition: opacity var(--scrolly-media-transition);
+}
+
+.forest-map__mesh-legend-forest-patch-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--color-forest);
 }
 
 .forest-map__mesh-legend-scale {
@@ -1826,4 +1797,288 @@ picture.end-sequence-section__media > img {
 .route-section__content h2,
 .map-section__title-row h2 {
   font-size: var(--type-title);
+}
+
+.explore-data-section {
+  min-height: 100svh;
+}
+
+.explore-data__stage {
+  display: grid;
+  grid-template-columns: var(--layout-copy-column) var(--layout-media-column);
+  min-height: 100svh;
+}
+
+.explore-data__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-copy);
+  padding: var(--section-padding-top) var(--panel-padding-inline) var(--panel-padding-bottom);
+  background: var(--color-sidebar);
+}
+
+.explore-data__title-row h2 {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: start;
+  margin: 0;
+  color: var(--color-title);
+  font-family: var(--font-ui);
+  font-size: var(--type-title);
+  font-weight: 600;
+}
+
+.explore-data__marks {
+  display: flex;
+  gap: 8px;
+}
+
+.explore-data__mark {
+  width: 33.6px;
+  height: 33.6px;
+  object-fit: contain;
+}
+
+.explore-data__intro-copy {
+  margin: 0;
+  color: var(--color-text);
+  font-family: var(--font-story);
+  font-size: var(--type-story);
+  line-height: 1.35;
+}
+
+.explore-data__overview {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+}
+
+.explore-data__overview-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.explore-data__overview-square {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: rgb(196 178 251 / 35%);
+  border: 2px solid var(--color-highlight);
+  box-shadow: 0 0 0 3px rgb(196 178 251 / 35%);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.explore-data__overview-caption {
+  margin: 0;
+  color: var(--color-data-annotation);
+  font-family: var(--font-ui);
+  font-size: var(--type-facts);
+  line-height: 1.5;
+}
+
+.explore-data__continue {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-title);
+  text-decoration: none;
+  font-family: var(--font-ui);
+  font-size: var(--type-facts);
+  font-weight: 600;
+  align-self: flex-start;
+}
+
+.explore-data__continue span[aria-hidden] {
+  transition: transform 150ms ease;
+}
+
+.explore-data__continue:hover span[aria-hidden] {
+  transform: translateY(3px);
+}
+
+.explore-data__media {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: var(--section-padding-top) var(--panel-padding-inline) var(--panel-padding-bottom);
+  background: var(--color-background);
+}
+
+.explore-data__header-back {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  padding: 12px 18px;
+  color: var(--color-data-card-text);
+  background: var(--color-data-card-surface);
+  border: 0;
+  font-family: var(--font-ui);
+  font-size: var(--type-story);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.explore-data__header-back-arrow {
+  transition: transform 150ms ease;
+}
+
+.explore-data__header-back:hover .explore-data__header-back-arrow {
+  transform: translateX(-3px);
+}
+
+.explore-data__cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--color-map-outline);
+}
+
+.explore-data__card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  color: var(--color-data-card-text);
+  background: var(--color-data-card-surface);
+  font-family: var(--font-ui);
+}
+
+.explore-data__card-label {
+  opacity: 0.75;
+  font-size: var(--type-map-label);
+  line-height: 1.3;
+}
+
+.explore-data__card-value {
+  font-size: var(--type-story);
+  font-weight: 600;
+}
+
+.explore-data__card--highlight {
+  color: var(--color-data-card-highlight-text);
+  background: var(--color-data-card-highlight-surface);
+}
+
+.explore-data__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: var(--type-map-label);
+}
+
+.explore-data__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.explore-data__legend-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+}
+
+.explore-data__legend-swatch--mesh {
+  background-image:
+    repeating-linear-gradient(0deg, var(--color-mesh) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(90deg, var(--color-mesh) 0 1px, transparent 1px 5px);
+  border: 1px solid var(--color-mesh);
+}
+
+.explore-data__legend-swatch--patch {
+  background: var(--color-forest);
+}
+
+.explore-data__map-wrap {
+  position: relative;
+  aspect-ratio: 760 / 480;
+  background: var(--color-background);
+}
+
+.explore-data__map-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.explore-data__boundary {
+  stroke: var(--color-map-outline);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.explore-data__mesh-line {
+  fill: none;
+  stroke: var(--color-mesh);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+.explore-data__patch {
+  stroke: var(--color-background);
+  stroke-width: 0.75;
+  fill: var(--color-forest);
+  opacity: 0.88;
+  cursor: pointer;
+  transition: opacity 150ms linear, stroke 150ms linear;
+}
+
+.explore-data__patch:hover,
+.explore-data__patch:focus-visible {
+  stroke: var(--color-highlight);
+  stroke-width: 2;
+  opacity: 1;
+  outline: none;
+}
+
+.explore-data__patch.is-selected {
+  stroke: var(--color-highlight);
+  stroke-width: 2.5;
+  opacity: 1;
+}
+
+.explore-data__status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  margin: 0;
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  place-items: center;
+}
+
+
+@media (max-width: 900px) {
+  .explore-data__stage {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .explore-data__media {
+    grid-row: 1;
+    padding: var(--section-padding-top) var(--panel-padding-inline) var(--panel-padding-bottom);
+  }
+
+  .explore-data__copy {
+    grid-row: 2;
+    padding: var(--panel-padding-top) var(--panel-padding-inline) var(--panel-padding-bottom);
+  }
+
+  .explore-data__cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .explore-data__map-wrap {
+    min-height: 260px;
+  }
 }

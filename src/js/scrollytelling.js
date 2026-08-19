@@ -1,84 +1,7 @@
 import scrollama from "../../vendor/scrollama/index.js";
-import { stories } from "./content.js";
 import { clamp, lerp } from "./utils.js";
 
 let updatePseudorelief = () => {};
-let activeStoryIndex = -1;
-const playedStoryOnceSounds = new Set();
-
-function isSoundEnabled() {
-  return document.querySelector(".sound-control__button")?.classList.contains("is-enabled") ?? false;
-}
-
-function hasStoryAnimation(index) {
-  const animation = stories[index]?.animation;
-  return Boolean(
-    animation?.src
-    && Number.isFinite(animation.start)
-    && Number.isFinite(animation.end)
-    && animation.end > animation.start
-  );
-}
-
-// Start the visual and sounds belonging to the story Scrollama has reached.
-function activateStory(index, { restartAnimation = true } = {}) {
-  const journey = document.querySelector(".story-chapter-section--journey");
-  if (!journey || !Number.isFinite(index)) return;
-  activeStoryIndex = index;
-  journey.querySelectorAll("[data-story-media]").forEach((item) => {
-    const isActive = Number(item.dataset.storyMedia) === index;
-    item.classList.toggle("is-active", isActive);
-    const loop = item.querySelector("audio[data-story-loop]");
-    if (loop) {
-      if (isActive && isSoundEnabled()) void loop.play().catch(() => void 0);
-      else {
-        loop.pause();
-        if (!isActive) loop.currentTime = 0;
-      }
-    }
-  });
-  const animationWindow = stories[index]?.animation;
-  const sharedAnimation = journey.querySelector("[data-story-shared-animation]");
-  const hasAnimation = Boolean(sharedAnimation && hasStoryAnimation(index));
-  if (sharedAnimation) {
-    if (hasAnimation) {
-      sharedAnimation.muted = !isSoundEnabled();
-      sharedAnimation.dataset.storyAnimationEnd = String(animationWindow.end);
-      if (restartAnimation) sharedAnimation.currentTime = animationWindow.start;
-      void sharedAnimation.play().catch(() => void 0);
-    } else {
-      sharedAnimation.pause();
-      delete sharedAnimation.dataset.storyAnimationEnd;
-    }
-  }
-  if (isSoundEnabled() && !playedStoryOnceSounds.has(index)) {
-    const once = journey.querySelector(`[data-story-once="${index}"]`);
-    if (once) {
-      once.currentTime = 0;
-      void once.play().then(() => playedStoryOnceSounds.add(index)).catch(() => void 0);
-    }
-  }
-  updateStories();
-}
-
-function syncStorySound({ enabled }) {
-  if (activeStoryIndex >= 0) activateStory(activeStoryIndex, { restartAnimation: false });
-  if (!enabled) document.querySelectorAll("audio[data-story-once]").forEach((sound) => sound.pause());
-}
-
-function setupSharedStoryAnimation() {
-  const animation = document.querySelector("[data-story-shared-animation]");
-  if (!animation) return;
-  animation.preload = "auto";
-  animation.load();
-  animation.addEventListener("timeupdate", () => {
-    const end = Number(animation.dataset.storyAnimationEnd);
-    if (Number.isFinite(end) && animation.currentTime >= end) {
-      animation.currentTime = end;
-      animation.pause();
-    }
-  });
-}
 
 export function registerPseudoreliefUpdater(updater) {
   updatePseudorelief = updater;
@@ -209,11 +132,6 @@ function updateImageSequence() {
 function updateStories() {
   const journey = document.querySelector(".story-chapter-section--journey");
   if (!journey) return;
-  const journeyRect = journey.getBoundingClientRect();
-  const journeyIsEntering = journeyRect.top < window.innerHeight && journeyRect.bottom > 0;
-  // The first trigger sits inside the chapter, so start story 1 as soon as the
-  // chapter enters the viewport instead of waiting for an additional scroll.
-  if (activeStoryIndex < 0 && journeyIsEntering) activateStory(0);
   const cards = journey.querySelectorAll("[data-story-card]");
   const storyRange = 0.72;
   const storySpan = storyRange / cards.length;
@@ -230,16 +148,10 @@ function updateStories() {
     card.style.setProperty("--story-copy-offset", "0px");
     card.style.setProperty("--facts-reveal", Math.min(factsIn, factsOut).toFixed(3));
   });
+  const media = journey.querySelector(".story-chapter-section__media img");
   const mediaReveal = clamp(progress / (storySpan * 0.5));
   const outroReveal = clamp((progress - storyRange) / 0.1);
-  const visibleStoryIndex = activeStoryIndex >= 0 ? activeStoryIndex : 0;
-  const storyHasAnimation = hasStoryAnimation(visibleStoryIndex);
-  journey.querySelectorAll("[data-story-media]").forEach((media) => {
-    const isActive = Number(media.dataset.storyMedia) === visibleStoryIndex;
-    media.style.opacity = isActive ? (mediaReveal * (1 - outroReveal)).toFixed(3) : "0";
-  });
-  const sharedAnimation = journey.querySelector("[data-story-shared-animation]");
-  if (sharedAnimation) sharedAnimation.style.opacity = storyHasAnimation ? (mediaReveal * (1 - outroReveal)).toFixed(3) : "0";
+  if (media) media.style.opacity = (mediaReveal * (1 - outroReveal)).toFixed(3);
   const storyOutroImage = document.querySelector(".story-outro__image");
   const storyOutroText = document.querySelector(".story-outro__text");
   const storyOutroArrow = document.querySelector(".story-outro__arrow");
@@ -248,6 +160,12 @@ function updateStories() {
   storyOutroArrow?.classList.toggle("is-visible", progress >= 0.86);
 }
 let currentMapStep = 0;
+// Tracks whether the URL has already been synced to "#explore-data" for the
+// current reveal, so it's only updated once per transition rather than on
+// every scroll frame while exploreDataReveal is nonzero.
+let hasSyncedExploreDataHash = false;
+// Manual horizontal pan applied to the ranking once it becomes interactive.
+let rankingPanOffsetX = 0;
 // Translate one map step into text, SVG, ranking, and 3D visual states.
 function applyMapStep(stepIndex, stepProgress = 1) {
   const section = document.querySelector(".map-section");
@@ -274,10 +192,11 @@ function applyMapStep(stepIndex, stepProgress = 1) {
   const meshDiagonalFact = meshDiagonalStep?.querySelector(":scope > .map-section__facts");
   const meshBayernTime = document.querySelector(".map-section__mesh-bayern-time");
   const meshThueringenTime = document.querySelector(".map-section__mesh-thueringen-time");
+  const exploreDataCopy = document.querySelector(".map-section__explore-data-copy");
   const forestMap = document.querySelector(".forest-map");
   const forestMapSvg = document.querySelector(".forest-map__svg");
   const barrierLayer = document.querySelector(".forest-map__layer--barriers");
-  if (!section || !barrierStep || !title || !forestTitle || !intro || !detail || !pseudo || !stubRoads || !pseudoFacts || !meshStep || !meshTitle || !meshIntroCopy || !meshFactIntro || !meshAnimation || !meshFactOutro || !meshRouteCopy || !meshBayernCopy || !meshThueringenCopy || !meshDiagonalStep || !meshDiagonalIntro || !meshDiagonalAnimation || !meshDiagonalFact || !meshBayernTime || !meshThueringenTime || !forestMap || !forestMapSvg || !barrierLayer) return;
+  if (!section || !barrierStep || !title || !forestTitle || !intro || !detail || !pseudo || !stubRoads || !pseudoFacts || !meshStep || !meshTitle || !meshIntroCopy || !meshFactIntro || !meshAnimation || !meshFactOutro || !meshRouteCopy || !meshBayernCopy || !meshThueringenCopy || !meshDiagonalStep || !meshDiagonalIntro || !meshDiagonalAnimation || !meshDiagonalFact || !meshBayernTime || !meshThueringenTime || !exploreDataCopy || !forestMap || !forestMapSvg || !barrierLayer) return;
   currentMapStep = stepIndex;
   // Delay slightly, then complete the entrance within this trigger's central 58%.
   const arrival = clamp((stepProgress - 0.18) / 0.58);
@@ -309,6 +228,14 @@ function applyMapStep(stepIndex, stepProgress = 1) {
   const diagonalReveal = stepIndex < 11 ? 0 : stepIndex === 11 ? arrival : 1;
   const bayernTimeReveal = stepIndex < 12 ? 0 : stepIndex === 12 ? arrival : 1;
   const thueringenTimeReveal = stepIndex < 13 ? 0 : stepIndex === 13 ? arrival : 1;
+  // Step 14 is 400svh tall (vs the usual 140svh) so there's room to drag/
+  // click the ranking after it arrives. Reusing the shared `arrival` here
+  // would stretch the slide itself across that same 400svh, making it feel
+  // sluggish next to every other transition. This keeps the slide's own
+  // pace matched to the others (same delay/span in svh terms, just
+  // re-expressed as a fraction of the taller step) and leaves the rest of
+  // the step's height as pure dwell time.
+  const exploreDataReveal = stepIndex < 14 ? 0 : stepIndex === 14 ? clamp((stepProgress - 0.063) / 0.203) : 1;
   const rankingReveal = meshRouteReveal;
   const rankingMobileOffsetY = window.matchMedia("(max-width: 700px)").matches
     ? 60
@@ -353,8 +280,11 @@ function applyMapStep(stepIndex, stepProgress = 1) {
   meshThueringenCopy.style.opacity = (thueringenReveal * (1 - diagonalReveal)).toFixed(3);
   meshThueringenCopy.style.transform = `translateY(${(1 - thueringenReveal) * window.innerHeight}px)`;
   meshDiagonalStep.style.top = `${meshTitle.offsetHeight}px`;
+  // Same push-up-and-out exit used between major steps elsewhere (e.g.
+  // pseudo -> mesh): position-only, no opacity fade, in sync with the
+  // incoming "Explore the Data" panel's own arrival below.
   meshDiagonalStep.style.opacity = diagonalReveal.toFixed(3);
-  meshDiagonalStep.style.transform = `translateY(${(1 - diagonalReveal) * window.innerHeight}px)`;
+  meshDiagonalStep.style.transform = `translateY(${((1 - diagonalReveal) - exploreDataReveal) * window.innerHeight}px)`;
   meshDiagonalIntro.style.opacity = (isColumnLayout ? 1 - bayernTimeReveal : 1).toFixed(3);
   meshDiagonalAnimation.style.transform = `translateY(${-mobileDiagonalShift}px)`;
   meshDiagonalFact.style.transform = `translateY(${-mobileDiagonalShift}px)`;
@@ -362,6 +292,14 @@ function applyMapStep(stepIndex, stepProgress = 1) {
   meshBayernTime.style.transform = `translateY(${(1 - bayernTimeReveal) * window.innerHeight - mobileDiagonalShift}px)`;
   meshThueringenTime.style.opacity = thueringenTimeReveal.toFixed(3);
   meshThueringenTime.style.transform = `translateY(${(1 - thueringenTimeReveal) * window.innerHeight - mobileDiagonalShift}px)`;
+  // Same slide used for every major step transition (e.g. detail -> pseudo,
+  // pseudo -> mesh): translateY only, no opacity fade, from 100vh to 0.
+  exploreDataCopy.style.top = `${meshTitle.offsetHeight}px`;
+  exploreDataCopy.style.transform = `translateY(${y(1 - exploreDataReveal)})`;
+  // "Mesh size" is a static, always-on header for this whole step; fade it
+  // out too so "Explore the Data" reads as a replacement, not an addition.
+  meshTitle.style.opacity = (1 - exploreDataReveal).toFixed(3);
+  forestMap.classList.toggle("is-ranking-interactive", exploreDataReveal > 0.3);
   stubRoads.style.opacity = stubRoadsReveal.toFixed(3);
   stubRoads.style.transform = `translateY(${(1 - stubRoadsReveal) * window.innerHeight}px)`;
   pseudoFacts.style.opacity = factsReveal.toFixed(3);
@@ -376,6 +314,7 @@ function applyMapStep(stepIndex, stepProgress = 1) {
   forestMap.style.setProperty("--mesh-reveal", meshReveal.toFixed(3));
   forestMap.style.setProperty("--ranking-reveal", rankingSwap.toFixed(3));
   forestMap.style.setProperty("--ranking-travel", rankingTravel.toFixed(3));
+  forestMap.style.setProperty("--explore-data-reveal", exploreDataReveal.toFixed(3));
   forestMap.classList.toggle("is-ranking", rankingReveal > 0);
   forestMap.closest(".map-section__media")?.classList.toggle("is-ranking", rankingReveal > 0);
   document.querySelectorAll(".forest-map__ranking-state").forEach((state) => {
@@ -384,7 +323,7 @@ function applyMapStep(stepIndex, stepProgress = 1) {
     const targetX = Number(state.dataset.targetX);
     const targetY = Number(state.dataset.targetY);
     const targetScale = Number(state.dataset.targetScale);
-    const currentX = lerp(centerX, targetX, rankingTravel) - 100 * bayernReveal;
+    const currentX = lerp(centerX, targetX, rankingTravel) - 100 * bayernReveal + rankingPanOffsetX * rankingTravel;
     const currentY = lerp(centerY, targetY - rankingMobileOffsetY, rankingTravel);
     const currentScale = lerp(1, targetScale, rankingTravel);
     state.setAttribute("transform", `translate(${currentX} ${currentY}) scale(${currentScale}) translate(${-centerX} ${-centerY})`);
@@ -394,6 +333,19 @@ function applyMapStep(stepIndex, stepProgress = 1) {
       : baseOpacity;
     state.style.opacity = stateOpacity.toFixed(3);
   });
+  const bayernPatchesGroup = document.querySelector(".forest-map__ranking-forest-patches");
+  if (bayernPatchesGroup) {
+    const centerX = Number(bayernPatchesGroup.dataset.centerX);
+    const centerY = Number(bayernPatchesGroup.dataset.centerY);
+    const targetX = Number(bayernPatchesGroup.dataset.targetX);
+    const targetY = Number(bayernPatchesGroup.dataset.targetY);
+    const targetScale = Number(bayernPatchesGroup.dataset.targetScale);
+    const currentX = lerp(centerX, targetX, rankingTravel) - 100 * bayernReveal + rankingPanOffsetX * rankingTravel;
+    const currentY = lerp(centerY, targetY - rankingMobileOffsetY, rankingTravel);
+    const currentScale = lerp(1, targetScale, rankingTravel);
+    bayernPatchesGroup.setAttribute("transform", `translate(${currentX} ${currentY}) scale(${currentScale}) translate(${-centerX} ${-centerY})`);
+    bayernPatchesGroup.style.opacity = exploreDataReveal.toFixed(3);
+  }
   document.querySelectorAll(".forest-map__ranking-label").forEach((label) => {
     const baseOpacity = label.dataset.stateCode === "09" ? 1 : 1 - 0.8 * bayernReveal;
     const focusOpacity = label.dataset.stateCode === "16"
@@ -402,7 +354,7 @@ function applyMapStep(stepIndex, stepProgress = 1) {
     const targetX = Number(label.dataset.targetX);
     const labelY = Number(label.dataset.labelY);
     const visibleLabelY = labelY - rankingMobileOffsetY;
-    const shiftedX = targetX - 100 * bayernReveal;
+    const shiftedX = targetX - 100 * bayernReveal + rankingPanOffsetX * rankingTravel;
     const visibleX = label.dataset.stateCode === "12" ? Math.max(24, shiftedX) : shiftedX;
     label.style.opacity = (rankingTravel * focusOpacity).toFixed(3);
     label.setAttribute("x", visibleX);
@@ -428,7 +380,7 @@ function applyMapStep(stepIndex, stepProgress = 1) {
         : baseOpacity;
       const targetX = Number(label.dataset.targetX);
       const labelY = Number(label.dataset.labelY) - rankingMobileOffsetY;
-      const shiftedX = targetX - 100 * bayernReveal;
+      const shiftedX = targetX - 100 * bayernReveal + rankingPanOffsetX * rankingTravel;
       const visibleX = label.dataset.stateCode === "12" ? Math.max(24, shiftedX) : shiftedX;
       const point = forestMapSvg.createSVGPoint();
       point.x = visibleX;
@@ -460,15 +412,10 @@ function applyMapStep(stepIndex, stepProgress = 1) {
         height
       };
     };
-    const closeFrame = frameForScale(0.52);
+    const closeFrame = frameForScale(0.38);
     const wideFrame = frameForScale(0.82);
     const isBarrierTransition = stepIndex <= 0;
     const barrierZoomOut = stepIndex < -1 ? 0 : stepIndex === -1 ? arrival : 1;
-    // Keep the breakdown readable for the whole barrier zoom-out; it exits
-    // only with the following transition to the all-forests map.
-    const barrierSummaryReveal = barrierReveal;
-    forestMap.style.setProperty("--barrier-summary-reveal", barrierSummaryReveal.toFixed(3));
-    forestMap.classList.toggle("has-barrier-summary", barrierSummaryReveal > 0.01);
     const forestTransition = stepIndex < 0 ? 0 : stepIndex === 0 ? arrival : 1;
     const barrierFrame = {
       x: lerp(closeFrame.x, wideFrame.x, barrierZoomOut),
@@ -497,14 +444,70 @@ function applyMapStep(stepIndex, stepProgress = 1) {
       : lerp(1000, forestDetailHeight, zoomReveal);
     forestMapSvg.setAttribute("viewBox", `${viewX} ${viewY} ${viewWidth} ${viewHeight}`);
   }
-  const activeMapSection = stepIndex < 0 ? "route" : "fragmentation";
+  // exploreDataReveal only leaves 0 once the "Explore the Data" panel
+  // actually starts sliding into view, so the nav tab switches in step with
+  // what's on screen instead of the moment step 14's scroll range begins
+  // (which, at 400svh tall, would otherwise flip the tab long before the
+  // text itself appears).
+  const activeMapSection = stepIndex < 0 ? "route" : exploreDataReveal > 0 ? "explore-data" : "fragmentation";
   section.dataset.section = activeMapSection;
+  // Once the "Explore the Data" text has actually animated into place,
+  // reflect that in the URL - same target as the nav tab, so the two stay
+  // consistent whether the user got here by scrolling or by clicking it.
+  if (activeMapSection === "explore-data") {
+    if (!hasSyncedExploreDataHash) {
+      hasSyncedExploreDataHash = true;
+      if (location.hash !== "#explore-data") history.replaceState(null, "", "#explore-data");
+    }
+  } else {
+    hasSyncedExploreDataHash = false;
+  }
   document.querySelectorAll("[data-section-link]").forEach((link) => {
     const isActive = link.dataset.sectionLink === activeMapSection;
     link.classList.toggle("is-active", isActive);
     link.setAttribute("aria-current", isActive ? "location" : "false");
   });
   updatePseudorelief(factsReveal, stubRoadsReveal);
+}
+// Lets the revealed ranking be dragged horizontally to see more states.
+// Only active once .is-ranking-interactive is set (past the "Explore the
+// Data" reveal); pointer capture is deferred until real movement is seen so
+// a plain click on a state (e.g. Bayern) still reaches its own handler.
+function wireRankingDrag() {
+  const forestMap = document.querySelector(".forest-map");
+  if (!forestMap) return;
+  let isDragging = false;
+  let dragMoved = false;
+  let startX = 0;
+  let startOffset = 0;
+  let pointerId = null;
+
+  forestMap.addEventListener("pointerdown", (event) => {
+    if (!forestMap.classList.contains("is-ranking-interactive")) return;
+    isDragging = true;
+    dragMoved = false;
+    startX = event.clientX;
+    startOffset = rankingPanOffsetX;
+    pointerId = event.pointerId;
+  });
+  forestMap.addEventListener("pointermove", (event) => {
+    if (!isDragging) return;
+    const deltaX = event.clientX - startX;
+    if (!dragMoved && Math.abs(deltaX) > 6) {
+      dragMoved = true;
+      forestMap.setPointerCapture(pointerId);
+    }
+    if (dragMoved) {
+      rankingPanOffsetX = startOffset + deltaX;
+      applyMapStep(currentMapStep, 1);
+    }
+  });
+  const endDrag = () => { isDragging = false; };
+  forestMap.addEventListener("pointerup", endDrag);
+  forestMap.addEventListener("pointercancel", endDrag);
+  forestMap.addEventListener("click", (event) => {
+    if (dragMoved) event.stopPropagation();
+  }, true);
 }
 // Switch end images and move four ending passages through the viewport.
 function updateEndSequence() {
@@ -532,14 +535,15 @@ function updateEndSequence() {
 }
 // Connect Scrollama, links, resizing, and all animation update functions.
 export function setupScrollScenes() {
-  setupSharedStoryAnimation();
   setupIntroVideo();
+  wireRankingDrag();
   document.querySelectorAll(".map-section__mark").forEach((image) => {
     image.addEventListener("error", () => image.classList.add("has-error"));
   });
   const mapNavigationSteps = new Map([
     ["route", -2],
-    ["fragmentation", 0]
+    ["fragmentation", 0],
+    ["explore-data", 14]
   ]);
   mapNavigationSteps.forEach((stepIndex, sectionId) => {
     document.querySelectorAll(`.main-nav__item[data-section-link="${sectionId}"]`).forEach((link) => {
@@ -588,12 +592,6 @@ export function setupScrollScenes() {
   };
 
   if (typeof scrollama === "function") {
-    // Each story has its own offset (`scrollOffset` in content.js). Reaching that
-    // line swaps the visual, starts its animation and updates the story sound.
-    const storyScroller = scrollama();
-    storyScroller
-      .setup({ step: "[data-story-trigger]", offset: 0.55, order: true })
-      .onStepEnter(({ element }) => activateStory(Number(element.dataset.storyTrigger)));
     // This instance controls the detailed numbered steps inside the map.
     const mapScroller = scrollama();
     mapScroller
@@ -625,19 +623,16 @@ export function setupScrollScenes() {
       .onStepProgress(requestUpdate)
       .onStepExit(requestUpdate);
     window.addEventListener("resize", () => {
-      storyScroller.resize();
       mapScroller.resize();
       sceneScroller.resize();
       requestUpdate();
     });
     window.__mapScroller = mapScroller;
-    window.__storyScroller = storyScroller;
     window.__sceneScroller = sceneScroller;
   } else {
     window.addEventListener("scroll", requestUpdate, { passive: true });
     window.addEventListener("resize", requestUpdate);
   }
-  window.addEventListener("soundstatechange", (event) => syncStorySound(event.detail));
   update();
 }
 

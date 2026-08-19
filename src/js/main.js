@@ -44,3 +44,18 @@ const loadVisualizations = async () => {
 
 // Begin preparing the map and model immediately so deep zoom steps are ready on arrival.
 void loadVisualizations();
+
+let exploreDataHasLoaded = false;
+const exploreDataSection = document.querySelector("#explore-data");
+if (exploreDataSection) {
+  const exploreDataObserver = new IntersectionObserver(
+    (entries) => {
+      if (exploreDataHasLoaded || !entries.some((entry) => entry.isIntersecting)) return;
+      exploreDataHasLoaded = true;
+      exploreDataObserver.disconnect();
+      import("./explore-data.js").then(({ setupExploreData }) => setupExploreData());
+    },
+    { rootMargin: "50% 0px" }
+  );
+  exploreDataObserver.observe(exploreDataSection);
+}

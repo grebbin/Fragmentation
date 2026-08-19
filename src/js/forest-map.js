@@ -7,11 +7,6 @@ barrierRasterPreload.fetchPriority = "high";
 barrierRasterPreload.src = "/media/barriers_1.webp";
 const barrierRasterReady = barrierRasterPreload.decode().catch(() => undefined);
 
-const routeRasterPreload = new Image();
-routeRasterPreload.decoding = "async";
-routeRasterPreload.src = "/media/route_overlay.png";
-const routeRasterReady = routeRasterPreload.decode().catch(() => undefined);
-
 export async function setupForestMap(onReady) {
   const root = document.querySelector(".forest-map");
   const svg = root?.querySelector(".forest-map__svg");
@@ -19,16 +14,16 @@ export async function setupForestMap(onReady) {
   if (!root || !svg) return;
 
   try {
-    const [germanyTopology, barrierWorldFile, routeWorldFile, allForestsTopology, largeForestsTopology, zoomForestsTopology, meshCsv] = await Promise.all([
+    const [germanyTopology, barrierWorldFile, allForestsTopology, largeForestsTopology, zoomForestsTopology, meshCsv, bayernForestPatches] = await Promise.all([
       json("/data/wald_expo/deut.topojson"),
       fetch("/media/barriers_1.pgw").then((response) => response.text()),
-      fetch("/media/route_overlay.pgw").then((response) => response.text()),
       json("/data/wald_expo/wald_alles_balanced.topojson"),
       json("/data/wald_expo/wald_50.topojson"),
       json("/data/wald_expo/wald_50_zoom.topojson"),
-      fetch("/data/U06KG__2024.csv").then((response) => response.text())
+      fetch("/data/U06KG__2024.csv").then((response) => response.text()),
+      json("/data/satellite/bayern/forest_patches.geojson")
     ]);
-    await Promise.all([barrierRasterReady, routeRasterReady]);
+    await barrierRasterReady;
     const germany = feature(germanyTopology, germanyTopology.objects.data);
     const allForests = feature(allForestsTopology, allForestsTopology.objects.data);
     const largeForests = feature(largeForestsTopology, largeForestsTopology.objects.data);
@@ -68,11 +63,8 @@ export async function setupForestMap(onReady) {
       .trim()
       .split(/\s+/)
       .map(Number);
-    // Derive the raster extent from the decoded file so replacing the
-    // georeferenced barrier image does not require a matching pixel size.
-    const imagePixelWidth = barrierRasterPreload.naturalWidth;
-    const imagePixelHeight = barrierRasterPreload.naturalHeight;
-    if (!imagePixelWidth || !imagePixelHeight) throw new Error("Barrier raster dimensions are unavailable.");
+    const imagePixelWidth = 6000;
+    const imagePixelHeight = 6000;
     const sourceMinX = upperLeftX - pixelWidth / 2;
     const sourceMaxY = upperLeftY - pixelHeight / 2;
     const sourceMaxX = sourceMinX + pixelWidth * imagePixelWidth;
@@ -100,29 +92,6 @@ export async function setupForestMap(onReady) {
       .datum(allForests)
       .attr("class", "forest-map__forests forest-map__forests--all")
       .attr("d", path);
-
-    const [routePixelWidth, , , routePixelHeight, routeUpperLeftX, routeUpperLeftY] = routeWorldFile
-      .trim()
-      .split(/\s+/)
-      .map(Number);
-    const routeImageWidth = routeRasterPreload.naturalWidth;
-    const routeImageHeight = routeRasterPreload.naturalHeight;
-    if (!routeImageWidth || !routeImageHeight) throw new Error("Route raster dimensions are unavailable.");
-    const routeMinX = routeUpperLeftX - routePixelWidth / 2;
-    const routeMaxY = routeUpperLeftY - routePixelHeight / 2;
-    const routeMaxX = routeMinX + routePixelWidth * routeImageWidth;
-    const routeMinY = routeMaxY + routePixelHeight * routeImageHeight;
-    const [routeX0, routeY0] = projection([routeMinX, routeMaxY]);
-    const [routeX1, routeY1] = projection([routeMaxX, routeMinY]);
-    select(svg).select(".forest-map__layer--route")
-      .append("image")
-      .attr("class", "forest-map__route-raster")
-      .attr("href", "/media/route_overlay.png")
-      .attr("x", routeX0)
-      .attr("y", routeY0)
-      .attr("width", routeX1 - routeX0)
-      .attr("height", routeY1 - routeY0)
-      .attr("preserveAspectRatio", "none");
     select(svg).select(".forest-map__layer--large")
       .selectAll("path")
       .data(largeForests.features)
@@ -223,8 +192,7 @@ export async function setupForestMap(onReady) {
     });
     const rankedStates = meshLabels
       .slice()
-      .sort((a, b) => b.valueKm2 - a.valueKm2)
-      .slice(0, 5);
+      .sort((a, b) => b.valueKm2 - a.valueKm2);
     const rankingLayer = select(svg).select(".forest-map__layer--ranking");
     const rankingGeometry = rankedStates.map((item) => {
       const features = stateFeatureGroups.get(item.stateCode);
@@ -264,6 +232,27 @@ export async function setupForestMap(onReady) {
       .attr("data-target-x", ({ targetX }) => targetX)
       .attr("data-target-y", ({ targetY }) => targetY)
       .attr("data-target-scale", ({ targetScale }) => targetScale);
+    // Bayern is the only state with a built-out detail view, so it's the
+    // only one that gets its forest patches overlaid on the ranking shape.
+    // The patches share Bayern's own ranking-state transform (same center/
+    // target/scale dataset values) so they move and scale with it in
+    // lockstep; scrollytelling.js fades them in with the "Explore the Data"
+    // reveal rather than with the ranking itself.
+    const bayernRankingItem = rankingItems.find(({ stateCode }) => stateCode === "09");
+    if (bayernRankingItem) {
+      const bayernPatchesGroup = rankingLayer.append("g")
+        .attr("class", "forest-map__ranking-forest-patches")
+        .attr("data-center-x", bayernRankingItem.centerX)
+        .attr("data-center-y", bayernRankingItem.centerY)
+        .attr("data-target-x", bayernRankingItem.targetX)
+        .attr("data-target-y", bayernRankingItem.targetY)
+        .attr("data-target-scale", bayernRankingItem.targetScale);
+      bayernPatchesGroup.selectAll("path")
+        .data(bayernForestPatches?.features ?? [])
+        .join("path")
+        .attr("class", "forest-map__ranking-forest-patch")
+        .attr("d", path);
+    }
     const rankingLabels = rankingLayer.selectAll("text.forest-map__ranking-label")
       .data(rankingItems)
       .join("text")
@@ -297,6 +286,23 @@ export async function setupForestMap(onReady) {
       .datum(stateBoundaries)
       .attr("class", "forest-map__state")
       .attr("d", path);
+
+    // Only Bayern currently has a built-out detail view; clicking its
+    // ranking shape (once the ranking has become interactive) jumps there.
+    const goToExploreData = (event) => {
+      if (!root.classList.contains("is-ranking-interactive")) return;
+      const target = document.querySelector("#explore-data");
+      if (!target) return;
+      event.preventDefault();
+      history.pushState(null, "", "#explore-data");
+      target.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    };
+    document.querySelectorAll('.forest-map__ranking-state[data-state-code="09"], .forest-map__ranking-label[data-state-code="09"], .forest-map__ranking-label-html[data-state-code="09"]').forEach((el) => {
+      el.addEventListener("click", goToExploreData);
+      el.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") goToExploreData(event);
+      });
+    });
 
     root.classList.add("is-ready");
     status?.remove();
