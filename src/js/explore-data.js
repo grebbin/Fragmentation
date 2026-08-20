@@ -1,12 +1,10 @@
 import { geoIdentity, geoPath, json, select } from "d3";
 import { feature } from "topojson-client";
+import { exploreData as exploreDataContent } from "./content.js";
 
 const DATA_ROOT = "/data/satellite/bayern";
 const GERMANY_TOPOJSON_URL = "/data/wald_expo/deut.topojson";
-const MESH_CSV_URL = "/data/U06KG__2024.csv";
-const ACTIVE_STATE_NAME = "Bayern";
 const ACTIVE_STATE_AGS = "09";
-const WALK_SPEED_KMH = 5;
 const MAP_VIEW_SIZE = 760;
 // Bayern renders at 60% of its original size (712px inner side at margin 24
 // -> 427px), asymmetric so it sits near the top of the box (close to the
@@ -25,16 +23,8 @@ function formatKm2(value) {
   return `${value.toFixed(2).replace(".", ",")} km²`;
 }
 
-// U06KG__2024.csv uses German `;`-separated rows and comma decimals.
-function parseMeshCsv(text) {
-  return text
-    .replace(/^﻿/, "")
-    .split(/\r?\n/)
-    .filter((line) => /^\d+;/.test(line.trim()))
-    .map((line) => {
-      const [, stateCode, stateName, rawValue] = line.split(";");
-      return { stateCode, stateName, valueKm2: Number(rawValue.replace(",", ".").trim()) };
-    });
+function formatPercent(value) {
+  return `${value.toFixed(1).replace(".", ",")}%`;
 }
 
 function meshPattern(defsSelection, id, valueKm2, projectionScale) {
@@ -58,15 +48,11 @@ export async function setupExploreData() {
   if (!root || !svg) return;
 
   try {
-    const [germanyTopology, meshCsvText, forestPatches] = await Promise.all([
+    const [germanyTopology, stateStats, forestPatches] = await Promise.all([
       json(GERMANY_TOPOJSON_URL),
-      fetch(MESH_CSV_URL).then((response) => response.text()),
+      json(`${DATA_ROOT}/state_stats.json`),
       json(`${DATA_ROOT}/forest_patches.geojson`)
     ]);
-
-    const meshRows = parseMeshCsv(meshCsvText);
-    const activeMesh = meshRows.find((row) => row.stateName === ACTIVE_STATE_NAME);
-    if (!activeMesh) throw new Error(`No mesh-size row found for ${ACTIVE_STATE_NAME}`);
 
     const germany = feature(germanyTopology, germanyTopology.objects.data);
     const stateFeature = germany.features.find((f) => f.properties.AGS === ACTIVE_STATE_AGS);
@@ -77,8 +63,8 @@ export async function setupExploreData() {
       .fitExtent([[MAP_MARGIN_X, MAP_MARGIN_TOP], [MAP_VIEW_SIZE - MAP_MARGIN_X, MAP_MARGIN_TOP + MAP_INNER_SIDE]], stateFeature);
     const path = geoPath(projection);
 
-    renderCards(root, activeMesh);
-    const patchSelection = renderMap(svg, path, projection, stateFeature, forestPatches, activeMesh.valueKm2);
+    renderCards(root, stateStats);
+    const patchSelection = renderMap(svg, path, projection, stateFeature, forestPatches, stateStats.meff_km2);
     showRandomPatch(root, patchSelection);
     wireHeaderBack(root);
     wireFinishStory(root);
@@ -89,7 +75,7 @@ export async function setupExploreData() {
     root.classList.add("is-ready");
   } catch (error) {
     console.error("Unable to render the Explore the Data section", error);
-    if (status) status.textContent = "Data for this state could not be loaded.";
+    if (status) status.textContent = exploreDataContent.detail.errorStatus;
   }
 }
 
@@ -200,15 +186,13 @@ function wireScrollLock(root) {
 // Detail screen: info cards
 // ---------------------------------------------------------------------------
 
-function renderCards(root, activeMesh) {
-  const cellSideMetres = Math.sqrt(activeMesh.valueKm2 * 1e6);
-  const diagonalMetres = cellSideMetres * Math.SQRT2;
-  const walkingMinutes = Math.round((diagonalMetres / 1000 / WALK_SPEED_KMH) * 60);
-
-  setCard(root, "mesh_size", formatKm2(activeMesh.valueKm2));
-  setCard(root, "walking_time", `${walkingMinutes} min`);
-  root.querySelector('.explore-data__state-name').textContent = activeMesh.stateName;
-  root.dataset.meshKm2 = String(activeMesh.valueKm2);
+function renderCards(root, stateStats) {
+  setCard(root, "mesh_size", formatKm2(stateStats.meff_km2));
+  setCard(root, "walking_time", `${Math.round(stateStats.walking_time_min)} min`);
+  setCard(root, "pct_unfragmented", formatPercent(stateStats.unfragmented_forest_pct));
+  setCard(root, "unfragmented_km2", formatKm2(stateStats.unfragmented_forest_km2));
+  root.querySelector('.explore-data__state-name').textContent = stateStats.state;
+  root.dataset.meshKm2 = String(stateStats.meff_km2);
 }
 
 function setCard(root, key, value) {
@@ -294,7 +278,7 @@ function showPatchInOverview(root, patchProps, patchEl) {
 
   image.src = `${DATA_ROOT}/forests/${patchProps.image}`;
   image.alt = `Satellite image of ${patchProps.id}`;
-  if (caption) caption.textContent = `${patchProps.id}, ${(patchProps.area_ha / 100).toFixed(1)} km². The purple square shows the mesh size at this forest's scale.`;
+  if (caption) caption.textContent = `${patchProps.id}, ${(patchProps.area_ha / 100).toFixed(1)} km². ${exploreDataContent.detail.overviewCaptionSuffix}`;
   root.querySelectorAll(".explore-data__patch.is-selected").forEach((patch) => patch.classList.remove("is-selected"));
   patchEl?.classList.add("is-selected");
 

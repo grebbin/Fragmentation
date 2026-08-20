@@ -1,4 +1,4 @@
-import { sections, stories } from "./content.js";
+import { sections, stories, exploreData } from "./content.js";
 import { createScrollArrow } from "./navigation.js";
 
 function baseSection(index) {
@@ -161,16 +161,11 @@ function createMap() {
           <p class="map-section__reveal-text map-section__mesh-thueringen-time">In Thüringen it would take around <strong>46</strong> minutes.</p>
         </div>
         <div class="map-section__reveal-text map-section__explore-data-copy">
-          <h2 class="map-section__explore-data-heading">Explore the Data</h2>
-          <p class="map-section__explore-data-body">
-            You may now explore the ranking
-            <br /><br />
-            and explore <strong>the unfragmented forests in your state.</strong>
-          </p>
-          <p class="map-section__explore-data-body">or finish the <strong>story</strong></p>
+          <h2 class="map-section__explore-data-heading">${exploreData.prompt.heading}</h2>
+          ${exploreData.prompt.bodyHtml.map((html) => `<p class="map-section__explore-data-body">${html}</p>`).join("")}
           <a class="explore-data__continue" href="#conclusion" aria-label="Finish the story">
             <span aria-hidden="true">&darr;</span>
-            <span>Finish Story</span>
+            <span>${exploreData.prompt.continueLabel}</span>
           </a>
         </div>
       </div>
@@ -280,17 +275,17 @@ function createExploreData() {
             <h2>
               <span class="explore-data__marks" aria-hidden="true">
                 <img class="explore-data__mark" src="/media/meshsize-purple.svg" alt="" />
-              </span><span class="explore-data__title-text">Explore the Data</span>
+              </span><span class="explore-data__title-text">${exploreData.detail.heading}</span>
             </h2>
           </div>
-          <p class="explore-data__intro-copy">Explore the "good forests" to the right.</p>
+          <p class="explore-data__intro-copy">${exploreData.detail.introCopy}</p>
           <p class="explore-data__overview-caption"></p>
           <div class="explore-data__overview">
             <img class="explore-data__overview-image" alt="" />
             <div class="explore-data__overview-square" aria-hidden="true"></div>
           </div>
           <a class="explore-data__continue" href="#conclusion" aria-label="Finish the story">
-            <span>Finish Story</span>
+            <span>${exploreData.detail.continueLabel}</span>
             <span aria-hidden="true">&darr;</span>
           </a>
         </div>
@@ -301,25 +296,25 @@ function createExploreData() {
           </button>
           <div class="explore-data__cards">
             <div class="explore-data__card" data-card="mesh_size">
-              <span class="explore-data__card-label">Mesh size</span>
+              <span class="explore-data__card-label">${exploreData.detail.cardLabels.mesh_size}</span>
               <span class="explore-data__card-value">—</span>
             </div>
             <div class="explore-data__card" data-card="walking_time">
-              <span class="explore-data__card-label">Walking Time per Mesh patch</span>
+              <span class="explore-data__card-label">${exploreData.detail.cardLabels.walking_time}</span>
               <span class="explore-data__card-value">—</span>
             </div>
             <div class="explore-data__card" data-card="pct_unfragmented">
-              <span class="explore-data__card-label">Unfragmented forests &gt;50</span>
-              <span class="explore-data__card-value">Pending</span>
+              <span class="explore-data__card-label">${exploreData.detail.cardLabels.pct_unfragmented}</span>
+              <span class="explore-data__card-value">—</span>
             </div>
             <div class="explore-data__card explore-data__card--highlight" data-card="unfragmented_km2">
-              <span class="explore-data__card-label">unfragmented forest</span>
-              <span class="explore-data__card-value">Pending</span>
+              <span class="explore-data__card-label">${exploreData.detail.cardLabels.unfragmented_km2}</span>
+              <span class="explore-data__card-value">—</span>
             </div>
           </div>
           <div class="explore-data__legend">
-            <span class="explore-data__legend-item"><i class="explore-data__legend-swatch explore-data__legend-swatch--mesh"></i>Mesh size</span>
-            <span class="explore-data__legend-item"><i class="explore-data__legend-swatch explore-data__legend-swatch--patch"></i>Forest Patch (&gt;50 km²)</span>
+            <span class="explore-data__legend-item"><i class="explore-data__legend-swatch explore-data__legend-swatch--mesh"></i>${exploreData.detail.legend.mesh}</span>
+            <span class="explore-data__legend-item"><i class="explore-data__legend-swatch explore-data__legend-swatch--patch"></i>${exploreData.detail.legend.patch}</span>
           </div>
           <div class="explore-data__map-wrap">
             <svg class="explore-data__map-svg" viewBox="0 0 760 480" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="explore-data-map-title">
@@ -328,7 +323,7 @@ function createExploreData() {
               <g class="explore-data__layer explore-data__layer--boundary"></g>
               <g class="explore-data__layer explore-data__layer--patches"></g>
             </svg>
-            <p class="explore-data__status">Loading state data…</p>
+            <p class="explore-data__status">${exploreData.detail.loadingStatus}</p>
           </div>
         </div>
       </div>

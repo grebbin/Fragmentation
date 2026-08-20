@@ -41,6 +41,37 @@ export const sections = [
   }
 ];
 
+// Text for the "Explore the Data" experience: the reveal prompt inside the
+// Fragmentation map chapter, and the standalone state-detail screen it links to.
+export const exploreData = {
+  prompt: {
+    heading: "Explore the Data",
+    bodyHtml: [
+      "You may now explore the ranking<br /><br />and explore <strong>the unfragmented forests in your state.</strong>",
+      "or finish the <strong>story</strong>"
+    ],
+    continueLabel: "Finish Story"
+  },
+  detail: {
+    heading: "Explore the Data",
+    introCopy: "Explore the \"good forests\" to the right.",
+    continueLabel: "Finish the Story",
+    loadingStatus: "Loading state data…",
+    errorStatus: "Data for this state could not be loaded.",
+    overviewCaptionSuffix: "The purple square shows the mesh size at this forest's scale.",
+    cardLabels: {
+      mesh_size: "Mesh size",
+      walking_time: "Walking Time per Mesh patch",
+      pct_unfragmented: "Unfragmented forests ≥50 km² ",
+      unfragmented_km2: "Total unfragmented forest (km²)"
+    },
+    legend: {
+      mesh: "Mesh size",
+      patch: "Forest Patch (>50 km²)"
+    }
+  }
+};
+
 export const stories = [
   {
     title: "Forest",
