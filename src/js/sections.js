@@ -160,14 +160,6 @@ function createMap() {
           <p class="map-section__reveal-text map-section__mesh-bayern-time">It would take around <strong>49</strong> minutes to walk undisturbed in Bayern without encountering any fragmentation barriers.</p>
           <p class="map-section__reveal-text map-section__mesh-thueringen-time">In Thüringen it would take around <strong>46</strong> minutes.</p>
         </div>
-        <div class="map-section__reveal-text map-section__explore-data-copy">
-          <h2 class="map-section__explore-data-heading">${exploreData.prompt.heading}</h2>
-          ${exploreData.prompt.bodyHtml.map((html) => `<p class="map-section__explore-data-body">${html}</p>`).join("")}
-          <a class="explore-data__continue" href="#conclusion" aria-label="Finish the story">
-            <span aria-hidden="true">&darr;</span>
-            <span>${exploreData.prompt.continueLabel}</span>
-          </a>
-        </div>
       </div>
     </div>
     <div class="map-section__media">
@@ -193,10 +185,6 @@ function createMap() {
             <div class="forest-map__mesh-legend-title">
               <img src="/media/meshsize-purple.svg" alt="" />
               <span>Mesh size</span>
-            </div>
-            <div class="forest-map__mesh-legend-title forest-map__mesh-legend-forest-patch">
-              <i class="forest-map__mesh-legend-forest-patch-swatch" aria-hidden="true"></i>
-              <span>Forest Patch (&gt;50 km²)</span>
             </div>
           </div>
           <div class="forest-map__mesh-legend-scale">
@@ -255,7 +243,6 @@ function createMap() {
     <div class="map-scroll-step" data-map-step="11"></div>
     <div class="map-scroll-step" data-map-step="12"></div>
     <div class="map-scroll-step" data-map-step="13"></div>
-    <div class="map-scroll-step map-scroll-step--explore-data" data-map-step="14"></div>
   </div>
 `;
   return section;
@@ -274,7 +261,7 @@ function createExploreData() {
           <div class="explore-data__title-row">
             <h2>
               <span class="explore-data__marks" aria-hidden="true">
-                <img class="explore-data__mark" src="/media/meshsize-purple.svg" alt="" />
+                <img class="explore-data__mark" src="/media/explore.svg" alt="" />
               </span><span class="explore-data__title-text">${exploreData.detail.heading}</span>
             </h2>
           </div>
@@ -284,16 +271,25 @@ function createExploreData() {
             <img class="explore-data__overview-image" alt="" />
             <div class="explore-data__overview-square" aria-hidden="true"></div>
           </div>
+          <div class="explore-data__overview-nav">
+            <button type="button" class="explore-data__overview-prev" aria-label="${exploreData.detail.overviewPrevLabel}"><img src="/media/arrow_left.svg" alt="" /></button>
+            <button type="button" class="explore-data__overview-next" aria-label="${exploreData.detail.overviewNextLabel}"><img src="/media/arrow_right.svg" alt="" /></button>
+          </div>
           <a class="explore-data__continue" href="#conclusion" aria-label="Finish the story">
             <span>${exploreData.detail.continueLabel}</span>
             <span aria-hidden="true">&darr;</span>
           </a>
         </div>
         <div class="explore-data__media">
-          <button type="button" class="explore-data__header-back">
-            <span class="explore-data__header-back-arrow" aria-hidden="true">&larr;</span>
-            <span class="explore-data__state-name">—</span>
-          </button>
+          <div class="explore-data__header">
+            <button type="button" class="explore-data__header-back">
+              <span class="explore-data__header-back-arrow" aria-hidden="true">&larr;</span>
+              <span>${exploreData.detail.backLabel}</span>
+            </button>
+            <div class="explore-data__header-state">
+              <span class="explore-data__state-name">—</span>
+            </div>
+          </div>
           <div class="explore-data__cards">
             <div class="explore-data__card" data-card="mesh_size">
               <span class="explore-data__card-label">${exploreData.detail.cardLabels.mesh_size}</span>
@@ -312,6 +308,11 @@ function createExploreData() {
               <span class="explore-data__card-value">—</span>
             </div>
           </div>
+          <div class="explore-data__ranking-scale">
+            <span>${exploreData.ranking.scaleHigh}</span>
+            <span class="explore-data__ranking-scale-arrow" aria-hidden="true">→</span>
+            <span>${exploreData.ranking.scaleLow}</span>
+          </div>
           <div class="explore-data__legend">
             <span class="explore-data__legend-item"><i class="explore-data__legend-swatch explore-data__legend-swatch--mesh"></i>${exploreData.detail.legend.mesh}</span>
             <span class="explore-data__legend-item"><i class="explore-data__legend-swatch explore-data__legend-swatch--patch"></i>${exploreData.detail.legend.patch}</span>
@@ -324,6 +325,19 @@ function createExploreData() {
               <g class="explore-data__layer explore-data__layer--patches"></g>
             </svg>
             <p class="explore-data__status">${exploreData.detail.loadingStatus}</p>
+          </div>
+          <div class="explore-data__ranking-wrap">
+            <div class="explore-data__ranking-scroll" tabindex="0" role="region" aria-label="All German states ranked by mesh size, scroll to see more">
+              <svg class="explore-data__ranking-svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="explore-data-ranking-title">
+                <title id="explore-data-ranking-title">All German states ranked by mesh size</title>
+                <defs class="explore-data__ranking-mesh-defs"></defs>
+                <g class="explore-data__ranking-states"></g>
+              </svg>
+            </div>
+            <div class="explore-data__ranking-nav">
+              <button type="button" class="explore-data__ranking-prev" aria-label="${exploreData.ranking.prevLabel}"><img src="/media/arrow_left.svg" alt="" /></button>
+              <button type="button" class="explore-data__ranking-next" aria-label="${exploreData.ranking.nextLabel}"><img src="/media/arrow_right.svg" alt="" /></button>
+            </div>
           </div>
         </div>
       </div>

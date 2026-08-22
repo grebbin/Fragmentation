@@ -587,15 +587,6 @@
   height: 100svh;
 }
 
-/* Extra tall: the reveal animation itself only needs the first ~76% of a
-   step's height (see `arrival` in scrollytelling.js), so a plain 140svh
-   step leaves almost no room afterward to actually drag/click the now-
-   interactive ranking before the sticky panel releases into the next
-   section. This adds a generous dwell window after the reveal completes. */
-.map-scroll-step--explore-data {
-  height: 400svh;
-}
-
 .map-section__stage {
   position: sticky;
   top: 0;
@@ -762,38 +753,6 @@
 }
 
 .map-section__mesh-bayern-time {
-  margin-top: var(--scrolly-facts-gap);
-}
-
-.map-section__explore-data-copy {
-  position: absolute;
-  right: 0;
-  left: 0;
-  transform: translateY(100vh);
-  transition: transform var(--scrolly-transition);
-  will-change: transform;
-}
-
-.map-section__explore-data-heading {
-  margin: 0 0 var(--scrolly-title-gap);
-  color: var(--color-title);
-  font-family: var(--font-ui);
-  font-size: var(--type-title);
-  font-weight: 700;
-}
-
-.map-section__explore-data-body {
-  margin: var(--scrolly-copy-gap) 0 0;
-  font-family: var(--font-story);
-  line-height: 1.35;
-}
-
-.map-section__explore-data-body strong {
-  font-weight: 700;
-  font-style: italic;
-}
-
-.map-section__explore-data-copy .explore-data__continue {
   margin-top: var(--scrolly-facts-gap);
 }
 
@@ -1152,32 +1111,12 @@ body:has(.pseudorelief-calibration:not([hidden])) .pseudorelief-model {
   will-change: opacity;
 }
 
-.forest-map.is-ranking-interactive .forest-map__layer--ranking {
-  cursor: grab;
-  pointer-events: auto;
-}
-
 .forest-map__ranking-state {
   stroke: var(--color-map-outline);
   stroke-width: 1;
   pointer-events: none;
   vector-effect: non-scaling-stroke;
   will-change: transform;
-}
-
-.forest-map.is-ranking-interactive .forest-map__ranking-state[data-state-code="09"] {
-  cursor: pointer;
-  pointer-events: auto;
-}
-
-.forest-map__ranking-forest-patches {
-  pointer-events: none;
-  will-change: transform, opacity;
-}
-
-.forest-map__ranking-forest-patch {
-  fill: var(--color-forest);
-  stroke: none;
 }
 
 .forest-map__ranking-label {
@@ -1211,11 +1150,6 @@ body:has(.pseudorelief-calibration:not([hidden])) .pseudorelief-model {
   transform: translate(-100%, 0) rotate(-55deg);
   transform-origin: right top;
   will-change: left, top, opacity;
-}
-
-.forest-map.is-ranking-interactive .forest-map__ranking-label-html[data-state-code="09"] {
-  cursor: pointer;
-  pointer-events: auto;
 }
 
 .forest-map__ranking-label-html strong {
@@ -1268,19 +1202,6 @@ body:has(.pseudorelief-calibration:not([hidden])) .pseudorelief-model {
   width: auto;
   height: 1.2em;
   object-fit: contain;
-}
-
-.forest-map__mesh-legend-forest-patch {
-  opacity: var(--explore-data-reveal, 0);
-  transition: opacity var(--scrolly-media-transition);
-}
-
-.forest-map__mesh-legend-forest-patch-swatch {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
-  background: var(--color-forest);
 }
 
 .forest-map__mesh-legend-scale {
@@ -1397,6 +1318,7 @@ body:has(.pseudorelief-calibration:not([hidden])) .pseudorelief-model {
   stroke: none;
   pointer-events: all;
   cursor: pointer;
+  outline: none;
 }
 
 .forest-map__layer--all,
@@ -1800,19 +1722,30 @@ picture.end-sequence-section__media > img {
 }
 
 .explore-data-section {
-  min-height: 100svh;
+  height: 100svh;
+  overflow: hidden;
+}
+
+/* This is the element wireScrollLock() actually observes; without its own
+   explicit height it reports its full (content-driven) bounding box no
+   matter how the ancestor section clips it, so the intersection ratio used
+   to detect "fully on screen" could never reach the lock threshold. */
+.explore-data {
+  height: 100%;
 }
 
 .explore-data__stage {
   display: grid;
   grid-template-columns: var(--layout-copy-column) var(--layout-media-column);
-  min-height: 100svh;
+  height: 100%;
 }
 
 .explore-data__copy {
   display: flex;
   flex-direction: column;
   gap: var(--space-copy);
+  height: 100%;
+  overflow-y: auto;
   padding: var(--section-padding-top) var(--panel-padding-inline) var(--panel-padding-bottom);
   background: var(--color-sidebar);
 }
@@ -1835,8 +1768,8 @@ picture.end-sequence-section__media > img {
 }
 
 .explore-data__mark {
-  width: 33.6px;
-  height: 33.6px;
+  width: 28px;
+  height: 28px;
   object-fit: contain;
 }
 
@@ -1880,16 +1813,52 @@ picture.end-sequence-section__media > img {
   line-height: 1.5;
 }
 
+.explore-data__overview-nav {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.explore-data__overview-prev,
+.explore-data__overview-next {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  color: var(--color-grey-primary);
+  background: var(--color-nav-surface);
+  border: 0;
+  border-radius: 6px;
+  place-items: center;
+  cursor: pointer;
+  outline: none;
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.explore-data__overview-prev:hover,
+.explore-data__overview-next:hover {
+  color: var(--color-title);
+  background: var(--color-nav-chosen);
+}
+
+.explore-data__overview-prev img,
+.explore-data__overview-next img {
+  width: 18px;
+  height: auto;
+  display: block;
+}
+
 .explore-data__continue {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-top: auto;
   color: var(--color-title);
   text-decoration: none;
   font-family: var(--font-ui);
   font-size: var(--type-facts);
   font-weight: 600;
   align-self: flex-start;
+  outline: none;
 }
 
 .explore-data__continue span[aria-hidden] {
@@ -1905,8 +1874,47 @@ picture.end-sequence-section__media > img {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
   padding: var(--section-padding-top) var(--panel-padding-inline) var(--panel-padding-bottom);
   background: var(--color-background);
+}
+
+.explore-data__header {
+  display: flex;
+  align-items: stretch;
+}
+
+.explore-data__header,
+.explore-data__cards,
+.explore-data__map-wrap,
+.explore-data__overview,
+.explore-data__overview-caption,
+.explore-data__overview-nav,
+.explore-data__ranking-scale,
+.explore-data__ranking-wrap {
+  transition: opacity 220ms ease;
+}
+
+.explore-data__header-state {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+  padding: 12px 18px;
+  color: var(--color-data-card-text);
+  background: var(--color-data-card-surface);
+  border-left: 1px solid var(--color-background);
+  font-family: var(--font-ui);
+  font-size: var(--type-story);
+  font-weight: 600;
+}
+
+.explore-data__header-state .explore-data__state-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .explore-data__header-back {
@@ -1922,6 +1930,7 @@ picture.end-sequence-section__media > img {
   font-size: var(--type-story);
   font-weight: 600;
   cursor: pointer;
+  outline: none;
 }
 
 .explore-data__header-back-arrow {
@@ -2002,7 +2011,14 @@ picture.end-sequence-section__media > img {
 .explore-data__map-wrap {
   position: relative;
   aspect-ratio: 760 / 480;
+  overflow: hidden;
   background: var(--color-background);
+  cursor: zoom-in;
+  touch-action: none;
+}
+
+.explore-data__map-wrap.is-zoomed {
+  cursor: grab;
 }
 
 .explore-data__map-svg {
@@ -2057,28 +2073,232 @@ picture.end-sequence-section__media > img {
   place-items: center;
 }
 
+.explore-data__ranking-scale {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: var(--type-map-label);
+}
+
+.explore-data__ranking-scale-arrow {
+  font-size: 1.2em;
+}
+
+.explore-data__ranking-wrap {
+  display: none;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 16px;
+  min-width: 0;
+  margin-inline: calc(var(--panel-padding-inline) * -1);
+}
+
+.explore-data__ranking-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  cursor: grab;
+  outline: none;
+}
+
+.explore-data__ranking-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.explore-data__ranking-scroll.is-dragging {
+  scroll-behavior: auto;
+  cursor: grabbing;
+}
+
+.explore-data__ranking-svg {
+  display: block;
+  height: 100%;
+  width: auto;
+  max-width: none;
+}
+
+.explore-data__ranking-states {
+  transform: translateY(-35px);
+}
+
+.explore-data__ranking-nav {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.explore-data__ranking-prev,
+.explore-data__ranking-next {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  color: var(--color-grey-primary);
+  background: var(--color-nav-surface);
+  border: 0;
+  border-radius: 6px;
+  font-size: var(--type-story);
+  place-items: center;
+  cursor: pointer;
+  outline: none;
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.explore-data__ranking-prev:hover,
+.explore-data__ranking-next:hover {
+  color: var(--color-title);
+  background: var(--color-nav-chosen);
+}
+
+.explore-data__ranking-prev img,
+.explore-data__ranking-next img {
+  width: 20px;
+  height: auto;
+  display: block;
+}
+
+.explore-data__ranking-state {
+  stroke: var(--color-map-outline);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+  outline: none;
+  transform: translate(var(--ranking-dx), var(--ranking-dy)) scale(1);
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 180ms ease, stroke 150ms ease;
+}
+
+.explore-data__ranking-state:hover,
+.explore-data__ranking-state:focus-visible {
+  transform: translate(var(--ranking-dx), var(--ranking-dy)) scale(1.1);
+}
+
+.explore-data__ranking-patch {
+  fill: var(--color-forest);
+  opacity: 0.85;
+  pointer-events: none;
+  transform: translate(var(--ranking-dx), var(--ranking-dy)) scale(1);
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 180ms ease;
+}
+
+.explore-data__ranking-item:has(> .explore-data__ranking-state:hover) .explore-data__ranking-patch,
+.explore-data__ranking-item:has(> .explore-data__ranking-state:focus-visible) .explore-data__ranking-patch {
+  transform: translate(var(--ranking-dx), var(--ranking-dy)) scale(1.1);
+}
+
+.explore-data__ranking-state.is-active {
+  stroke: var(--color-highlight);
+  stroke-width: 2;
+}
+
+.explore-data__ranking-mesh-line {
+  fill: none;
+  stroke: var(--color-mesh);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+.explore-data__ranking-label {
+  fill: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 400;
+  text-anchor: middle;
+  cursor: pointer;
+  outline: none;
+}
+
+.explore-data__ranking-item:has(> .explore-data__ranking-state:hover) .explore-data__ranking-label,
+.explore-data__ranking-item:has(> .explore-data__ranking-state:focus-visible) .explore-data__ranking-label {
+  font-weight: 600;
+}
+
+.explore-data__ranking-label-value {
+  fill: var(--color-mesh);
+  font-weight: 600;
+}
+
+.explore-data__ranking-leader {
+  stroke: var(--color-map-outline);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.explore-data.is-all-states .explore-data__header,
+.explore-data.is-all-states .explore-data__cards,
+.explore-data.is-all-states .explore-data__map-wrap,
+.explore-data.is-all-states .explore-data__overview,
+.explore-data.is-all-states .explore-data__overview-caption,
+.explore-data.is-all-states .explore-data__overview-nav {
+  display: none;
+}
+
+.explore-data.is-all-states .explore-data__ranking-scale,
+.explore-data.is-all-states .explore-data__ranking-wrap {
+  display: flex;
+}
 
 @media (max-width: 900px) {
+  .explore-data-section,
+  .explore-data {
+    height: 100dvh;
+  }
+
   .explore-data__stage {
     display: grid;
     grid-template-columns: 1fr;
+    grid-template-rows: var(--column-row-height) var(--column-row-height);
+  }
+
+  /* The ranking view's copy panel only holds a couple of lines of intro
+     text (no cards/map), so it can give the media panel more room for the
+     ranked states - matching them closer to their size on the mesh-size
+     step, which isn't split into two stacked panels at all. */
+  .explore-data.is-all-states .explore-data__stage {
+    grid-template-rows: 60dvh 40dvh;
   }
 
   .explore-data__media {
     grid-row: 1;
+    height: 100%;
+    gap: 12px;
     padding: var(--section-padding-top) var(--panel-padding-inline) var(--panel-padding-bottom);
+    /* Nav bar is ~46px tall on mobile - 24px below that keeps both the
+       detail header (back button + state tag) and the ranking legend
+       close under it instead of the much taller default gap above. */
+    padding-top: 70px;
   }
 
   .explore-data__copy {
     grid-row: 2;
+    height: 100%;
     padding: var(--panel-padding-top) var(--panel-padding-inline) var(--panel-padding-bottom);
+    /* Sound control button is a fixed 40px circle sitting 20px above the
+       viewport bottom - 32px above *that* keeps "Finish the Story" clear
+       of it instead of overlapping. */
+    padding-bottom: 92px;
   }
 
   .explore-data__cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .explore-data__card {
+    padding: 10px 12px;
+  }
+
   .explore-data__map-wrap {
-    min-height: 260px;
+    min-height: 0;
+    max-width: 280px;
+    margin-inline: auto;
   }
 }

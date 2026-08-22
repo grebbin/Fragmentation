@@ -1,10 +1,9 @@
-import { geoIdentity, geoPath, json, select } from "d3";
+import { geoIdentity, geoPath, json, select, zoom, zoomIdentity } from "d3";
 import { feature } from "topojson-client";
 import { exploreData as exploreDataContent } from "./content.js";
 
-const DATA_ROOT = "/data/satellite/bayern";
 const GERMANY_TOPOJSON_URL = "/data/wald_expo/deut.topojson";
-const ACTIVE_STATE_AGS = "09";
+const DEFAULT_STATE_AGS = "09";
 const MAP_VIEW_SIZE = 760;
 // Bayern renders at 60% of its original size (712px inner side at margin 24
 // -> 427px), asymmetric so it sits near the top of the box (close to the
@@ -14,17 +13,69 @@ const MAP_VIEW_SIZE = 760;
 const MAP_INNER_SIDE = 712 * 0.6;
 const MAP_MARGIN_TOP = 20;
 const MAP_MARGIN_X = (MAP_VIEW_SIZE - MAP_INNER_SIDE) / 2;
-// The ranking view lives in the Fragmentation chapter (forest-map.js /
-// scrollytelling.js); this is the step index its "Explore the Data" reveal
-// sits at, used to scroll back up to it from the header's back control.
-const RANKING_MAP_STEP = 14;
+const MESH_CSV_URL = "/data/U06KG__2024.csv";
+// Only used as a walking-time fallback for states missing state_stats.json.
+const WALK_SPEED_KMH = 5;
+// Height of the "all states" ranking canvas; width is derived from the
+// states' own summed widths so the row can overflow into horizontal scroll.
+const RANKING_VIEW_HEIGHT = 700;
+const RANKING_GAP = 24;
+// Extra room past the last (smallest-mesh) state so it isn't flush against
+// the edge of the scrollable area when scrolled all the way right.
+const RANKING_TRAILING_SPACE = 60;
+const RANKING_SCROLL_STEP = 360;
+// Kept in sync with the transition duration on the detail/ranking elements
+// in sections.css, so the display swap waits for the fade-out to finish.
+const RANKING_FADE_MS = 220;
+const MAP_ZOOM_MAX = 6;
+const DETAIL_VIEW_SELECTOR = ".explore-data__header, .explore-data__cards, .explore-data__map-wrap, .explore-data__overview, .explore-data__overview-caption, .explore-data__overview-nav";
+const RANKING_VIEW_SELECTOR = ".explore-data__ranking-scale, .explore-data__ranking-wrap";
+
+// Every state's assets live under its own lower-cased folder name, e.g.
+// "Nordrhein-Westfalen" -> /data/satellite/nordrhein-westfalen/. The state
+// names here come from the CSV as precomposed Unicode (NFC: "ü" is one
+// codepoint), but the folders on disk were created on macOS, which stores
+// filenames decomposed (NFD: "u" + a combining diaeresis) - byte-identical
+// on screen but different strings, so an un-normalized fetch 404s for any
+// state with an accented letter (Baden-Württemberg, Thüringen). Normalizing
+// to NFD here matches what's actually on disk (and in git, since it commits
+// whatever bytes are there).
+function dataRootFor(stateName) {
+  return `/data/satellite/${stateName.toLowerCase().normalize("NFD")}`;
+}
+
+// Fits one state's boundary to the detail map's display box. Used both to
+// actually position/size that state's own boundary and patches, and - once,
+// for Bayern only - to derive a fixed reference scale for the mesh pattern
+// (see loadStateDetail): reusing this same box means that reference is
+// exactly what Bayern's own projection produces, so Bayern's appearance is
+// unchanged by the fix.
+function fitStateProjection(stateFeature) {
+  return geoIdentity()
+    .reflectY(true)
+    .fitExtent([[MAP_MARGIN_X, MAP_MARGIN_TOP], [MAP_VIEW_SIZE - MAP_MARGIN_X, MAP_MARGIN_TOP + MAP_INNER_SIDE]], stateFeature);
+}
 
 function formatKm2(value) {
-  return `${value.toFixed(2).replace(".", ",")} km²`;
+  return Number.isFinite(value) ? `${value.toFixed(2).replace(".", ",")} km²` : "—";
 }
 
 function formatPercent(value) {
-  return `${value.toFixed(1).replace(".", ",")}%`;
+  return Number.isFinite(value) ? `${value.toFixed(1).replace(".", ",")}%` : "—";
+}
+
+// U06KG__2024.csv uses German `;`-separated rows and comma decimals.
+function parseMeshCsv(text) {
+  return new Map(
+    text
+      .replace(/^﻿/, "")
+      .split(/\r?\n/)
+      .filter((line) => /^\d+;/.test(line.trim()))
+      .map((line) => {
+        const [, stateCode, stateName, rawValue] = line.split(";");
+        return [stateCode, { stateName, valueKm2: Number(rawValue.replace(",", ".").trim()) }];
+      })
+  );
 }
 
 function meshPattern(defsSelection, id, valueKm2, projectionScale) {
@@ -44,32 +95,60 @@ function meshPattern(defsSelection, id, valueKm2, projectionScale) {
 export async function setupExploreData() {
   const root = document.querySelector(".explore-data");
   const svg = root?.querySelector(".explore-data__map-svg");
+  const rankingSvg = root?.querySelector(".explore-data__ranking-svg");
   const status = root?.querySelector(".explore-data__status");
-  if (!root || !svg) return;
+  if (!root || !svg || !rankingSvg) return;
 
   try {
-    const [germanyTopology, stateStats, forestPatches] = await Promise.all([
+    const [germanyTopology, meshCsvText] = await Promise.all([
       json(GERMANY_TOPOJSON_URL),
-      json(`${DATA_ROOT}/state_stats.json`),
-      json(`${DATA_ROOT}/forest_patches.geojson`)
+      fetch(MESH_CSV_URL).then((response) => response.text())
     ]);
 
     const germany = feature(germanyTopology, germanyTopology.objects.data);
-    const stateFeature = germany.features.find((f) => f.properties.AGS === ACTIVE_STATE_AGS);
-    if (!stateFeature) throw new Error(`No boundary found for AGS ${ACTIVE_STATE_AGS}`);
+    const meshValues = parseMeshCsv(meshCsvText);
 
-    const projection = geoIdentity()
-      .reflectY(true)
-      .fitExtent([[MAP_MARGIN_X, MAP_MARGIN_TOP], [MAP_VIEW_SIZE - MAP_MARGIN_X, MAP_MARGIN_TOP + MAP_INNER_SIDE]], stateFeature);
-    const path = geoPath(projection);
+    // Each state's boundary is fit to the same pixel box, so a tiny state
+    // (e.g. Berlin) ends up zoomed in far more than a huge one (e.g.
+    // Nordrhein-Westfalen) just to fill it. Sizing the mesh pattern off that
+    // per-state zoom (projection.scale()) would make cell size reflect the
+    // state's physical size rather than its actual mesh value - a smaller,
+    // more zoomed-in state could show a coarser grid than a state with a
+    // genuinely bigger mesh. Fixing the pattern's scale to Bayern's own
+    // (used as the default/reference state) keeps it comparable across
+    // every state, at the cost of very small or very large states showing a
+    // correspondingly sparse or dense grid relative to their own outline -
+    // which is the accurate picture, not a bug.
+    const bayernFeature = germany.features.find((f) => f.properties.AGS === DEFAULT_STATE_AGS);
+    const meshReferenceScale = fitStateProjection(bayernFeature).scale();
 
-    renderCards(root, stateStats);
-    const patchSelection = renderMap(svg, path, projection, stateFeature, forestPatches, stateStats.meff_km2);
-    showRandomPatch(root, patchSelection);
-    wireHeaderBack(root);
+    // The ranking thumbnails show the same mesh-grid + forest-patches picture
+    // as the detail view, so every state's forest_patches.geojson needs to be
+    // on hand up front rather than only fetched on selection.
+    const forestPatchesByState = new Map(
+      await Promise.all(
+        Array.from(meshValues, async ([stateCode, entry]) => {
+          const patches = await json(`${dataRootFor(entry.stateName)}/forest_patches.geojson`).catch(() => null);
+          return [stateCode, patches];
+        })
+      )
+    );
+
+    const selectState = (ags) => loadStateDetail(root, svg, rankingSvg, germany, meshValues, ags, meshReferenceScale);
+
+    renderRanking(rankingSvg, germany, meshValues, forestPatchesByState, (ags) => {
+      switchExploreDataView(root, false);
+      void selectState(ags);
+    });
+    wireAllStatesToggle(root);
+    wireRankingDrag(root);
+    wireMapZoom(root, svg);
+    wireOverviewNav(root);
     wireFinishStory(root);
     wireScrollLock(root);
     window.addEventListener("resize", () => root._overviewRescale?.());
+
+    await selectState(DEFAULT_STATE_AGS);
 
     status?.remove();
     root.classList.add("is-ready");
@@ -79,30 +158,204 @@ export async function setupExploreData() {
   }
 }
 
-// Picks one forest patch to show by default rather than a whole-state image.
-function showRandomPatch(root, patchSelection) {
-  const nodes = patchSelection.nodes();
-  const randomNode = nodes[Math.floor(Math.random() * nodes.length)];
-  if (randomNode) showPatchInOverview(root, randomNode.__data__.properties, randomNode);
+// Loads and renders one state's detail view (cards, map, forest overview).
+// Called once up front for the default state, then again on every ranking
+// click - each call fully replaces the previous state's content in place.
+async function loadStateDetail(root, svg, rankingSvg, germany, meshValues, ags, meshReferenceScale) {
+  const stateFeature = germany.features.find((f) => f.properties.AGS === ags);
+  const meshEntry = meshValues.get(ags);
+  if (!stateFeature || !meshEntry) throw new Error(`No boundary or mesh value found for AGS ${ags}`);
+  const dataRoot = dataRootFor(meshEntry.stateName);
+
+  const [stateStats, forestPatches] = await Promise.all([
+    fetchStateStats(dataRoot, meshEntry),
+    json(`${dataRoot}/forest_patches.geojson`).catch(() => null)
+  ]);
+
+  const projection = fitStateProjection(stateFeature);
+  const path = geoPath(projection);
+
+  root.dataset.dataRoot = dataRoot;
+  renderCards(root, stateStats);
+  const patchSelection = renderMap(svg, path, stateFeature, forestPatches, stateStats.meff_km2, meshReferenceScale);
+  showRandomPatch(root, patchSelection);
+  setActiveRankingState(rankingSvg, ags);
+  root._resetMapZoom?.();
 }
 
-// The states ranking now lives in the Fragmentation chapter; "back" scrolls
-// up to its "Explore the Data" reveal step rather than switching screens.
-function wireHeaderBack(root) {
-  root.querySelector(".explore-data__header-back")?.addEventListener("click", (event) => {
-    const targetStep = document.querySelector(`.map-scroll-step[data-map-step="${RANKING_MAP_STEP}"]`);
-    if (!targetStep) return;
-    event.preventDefault();
-    beginNavigatingAway();
-    history.pushState(null, "", "#fragmentation");
-    const stepTop = window.scrollY + targetStep.getBoundingClientRect().top;
-    const fullyRevealedProgress = 0.82;
-    const targetY = stepTop + targetStep.offsetHeight * fullyRevealedProgress - window.innerHeight * 0.5;
-    window.scrollTo({
-      top: Math.max(0, targetY),
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
+// state_stats.json isn't published for every state yet (Mecklenburg-
+// Vorpommern, at least) - fall back to the mesh-size CSV (which does cover
+// all 16) and a walking-time estimate derived from it, leaving the two
+// fields with no CSV equivalent (unfragmented-forest share/area) unset
+// rather than guessing at numbers with no source.
+async function fetchStateStats(dataRoot, meshEntry) {
+  try {
+    return await json(`${dataRoot}/state_stats.json`);
+  } catch {
+    const cellSideMetres = Math.sqrt(meshEntry.valueKm2 * 1e6);
+    const diagonalMetres = cellSideMetres * Math.SQRT2;
+    return {
+      state: meshEntry.stateName,
+      meff_km2: meshEntry.valueKm2,
+      walking_time_min: (diagonalMetres / 1000 / WALK_SPEED_KMH) * 60,
+      unfragmented_forest_pct: null,
+      unfragmented_forest_km2: null
+    };
+  }
+}
+
+// Picks one forest patch to show by default rather than a whole-state image.
+// Also stashes the full patch list on root so the overview's prev/next
+// buttons (see wireOverviewNav) can step through them without needing their
+// own reference to the current state's patchSelection.
+function showRandomPatch(root, patchSelection) {
+  const nodes = patchSelection.nodes();
+  root._patchNodes = nodes;
+  const nav = root.querySelector(".explore-data__overview-nav");
+  if (!nodes.length) {
+    root._patchIndex = -1;
+    if (nav) nav.style.display = "none";
+    clearOverview(root);
+    return;
+  }
+  if (nav) nav.style.display = "";
+  const index = Math.floor(Math.random() * nodes.length);
+  root._patchIndex = index;
+  showPatchInOverview(root, nodes[index].__data__.properties, nodes[index]);
+}
+
+// A handful of states (Berlin, Bremen, Hamburg, Saarland, Schleswig-
+// Holstein) genuinely have zero forest patches over the 50 km² threshold -
+// clear any previous state's leftover image rather than show it stale.
+function clearOverview(root) {
+  const image = root.querySelector(".explore-data__overview-image");
+  const square = root.querySelector(".explore-data__overview-square");
+  const caption = root.querySelector(".explore-data__overview-caption");
+  if (image) { image.removeAttribute("src"); image.alt = ""; }
+  if (square) { square.style.width = "0"; square.style.height = "0"; }
+  if (caption) caption.textContent = exploreDataContent.detail.noForestCopy;
+  root.querySelectorAll(".explore-data__patch.is-selected").forEach((patch) => patch.classList.remove("is-selected"));
+  root._overviewRescale = undefined;
+}
+
+// Steps the overview to the previous/next forest patch, wrapping around at
+// either end. Shares state with showRandomPatch/showPatchInOverview via
+// root._patchNodes/_patchIndex, so it stays in sync whichever way a patch
+// was last selected (random default, clicking the map, or these buttons).
+function wireOverviewNav(root) {
+  const step = (delta) => {
+    const nodes = root._patchNodes;
+    if (!nodes || !nodes.length) return;
+    root._patchIndex = (root._patchIndex + delta + nodes.length) % nodes.length;
+    const node = nodes[root._patchIndex];
+    showPatchInOverview(root, node.__data__.properties, node);
+  };
+  root.querySelector(".explore-data__overview-prev")?.addEventListener("click", () => step(-1));
+  root.querySelector(".explore-data__overview-next")?.addEventListener("click", () => step(1));
+}
+
+// Crossfades the media panel between the Bayern detail view and the ranked
+// overview: fade the current view out, swap which is in the document flow
+// once it's invisible, then fade the new one in. Avoids the two views ever
+// being stacked on top of each other mid-transition.
+function switchExploreDataView(root, toAllStates) {
+  if (root.classList.contains("is-all-states") === toAllStates) return;
+  const outgoing = root.querySelectorAll(toAllStates ? DETAIL_VIEW_SELECTOR : RANKING_VIEW_SELECTOR);
+  const incoming = root.querySelectorAll(toAllStates ? RANKING_VIEW_SELECTOR : DETAIL_VIEW_SELECTOR);
+
+  outgoing.forEach((el) => { el.style.opacity = "0"; });
+  window.setTimeout(() => {
+    root.classList.toggle("is-all-states", toAllStates);
+    incoming.forEach((el) => { el.style.opacity = "0"; });
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        incoming.forEach((el) => { el.style.opacity = "1"; });
+      });
     });
+  }, RANKING_FADE_MS);
+}
+
+// "All States" swaps the media panel between the Bayern detail view and the
+// ranked overview in place - no navigation, no scroll, same screen.
+function wireAllStatesToggle(root) {
+  root.querySelector(".explore-data__header-back")?.addEventListener("click", () => {
+    switchExploreDataView(root, true);
   });
+  root.querySelector(".explore-data__ranking-prev")?.addEventListener("click", () => {
+    root.querySelector(".explore-data__ranking-scroll")?.scrollBy({ left: -RANKING_SCROLL_STEP, behavior: "smooth" });
+  });
+  root.querySelector(".explore-data__ranking-next")?.addEventListener("click", () => {
+    root.querySelector(".explore-data__ranking-scroll")?.scrollBy({ left: RANKING_SCROLL_STEP, behavior: "smooth" });
+  });
+}
+
+// Click-and-drag panning for the ranking row. Pointer capture is deferred
+// until real movement is seen, so a plain click on Bayern's shape still
+// reaches its own handler instead of being swallowed as a zero-distance drag.
+function wireRankingDrag(root) {
+  const scrollEl = root.querySelector(".explore-data__ranking-scroll");
+  if (!scrollEl) return;
+  let isDown = false;
+  let dragMoved = false;
+  let startX = 0;
+  let startScrollLeft = 0;
+  let pointerId = null;
+
+  scrollEl.addEventListener("pointerdown", (event) => {
+    isDown = true;
+    dragMoved = false;
+    startX = event.clientX;
+    startScrollLeft = scrollEl.scrollLeft;
+    pointerId = event.pointerId;
+  });
+  scrollEl.addEventListener("pointermove", (event) => {
+    if (!isDown) return;
+    const deltaX = event.clientX - startX;
+    if (!dragMoved && Math.abs(deltaX) > 6) {
+      dragMoved = true;
+      scrollEl.setPointerCapture(pointerId);
+      scrollEl.classList.add("is-dragging");
+    }
+    if (dragMoved) {
+      scrollEl.scrollLeft = startScrollLeft - deltaX;
+      event.preventDefault();
+    }
+  });
+  const endDrag = () => {
+    isDown = false;
+    scrollEl.classList.remove("is-dragging");
+  };
+  scrollEl.addEventListener("pointerup", endDrag);
+  scrollEl.addEventListener("pointercancel", endDrag);
+  scrollEl.addEventListener("click", (event) => {
+    if (dragMoved) event.stopPropagation();
+  }, true);
+}
+
+// Lets the user zoom into the detail map (wheel/pinch/drag-to-pan), but
+// scaleExtent's floor of 1 means "zooming out" only ever returns to the
+// natural framing - it can never shrink past it. The transform is applied as
+// a CSS transform on the <svg> element itself (not an inner viewBox-space
+// <g>), so it's in the same CSS-pixel coordinate system d3-zoom's pointer
+// tracking already uses - no viewBox-vs-screen-pixel unit conversion needed.
+function wireMapZoom(root, svg) {
+  const wrap = svg.closest(".explore-data__map-wrap");
+  if (!wrap) return;
+  svg.style.transformOrigin = "0 0";
+  const zoomBehavior = zoom()
+    .scaleExtent([1, MAP_ZOOM_MAX])
+    .on("zoom", (event) => {
+      svg.style.transform = `translate(${event.transform.x}px, ${event.transform.y}px) scale(${event.transform.k})`;
+      wrap.classList.toggle("is-zoomed", event.transform.k > 1);
+    });
+  const applyExtent = () => {
+    const rect = wrap.getBoundingClientRect();
+    zoomBehavior.extent([[0, 0], [rect.width, rect.height]]).translateExtent([[0, 0], [rect.width, rect.height]]);
+  };
+  applyExtent();
+  window.addEventListener("resize", applyExtent);
+  select(wrap).call(zoomBehavior);
+  root._resetMapZoom = () => select(wrap).call(zoomBehavior.transform, zoomIdentity);
 }
 
 // Plain anchor by default; just make sure the lock releases before it jumps.
@@ -204,13 +457,23 @@ function setCard(root, key, value) {
 // Detail screen: map
 // ---------------------------------------------------------------------------
 
-function renderMap(svg, path, projection, stateFeature, forestPatches, valueKm2) {
+// Called once per selected state, so any previous state's defs/boundary are
+// cleared first rather than left piling up underneath the new ones. Takes
+// path (the current state's own fit-to-box projection, for shape/position)
+// and meshReferenceScale (a fixed, state-independent scale - see
+// setupExploreData) separately, so the mesh pattern's cell size reflects
+// the real mesh value consistently across states rather than each state's
+// own zoom level.
+function renderMap(svg, path, stateFeature, forestPatches, valueKm2, meshReferenceScale) {
   const svgSel = select(svg);
-  meshPattern(svgSel.select(".explore-data__mesh-defs"), "explore-data-mesh-pattern", valueKm2, projection.scale());
+  const defs = svgSel.select(".explore-data__mesh-defs");
+  defs.selectAll("*").remove();
+  meshPattern(defs, "explore-data-mesh-pattern", valueKm2, meshReferenceScale);
 
   svgSel.select(".explore-data__layer--boundary")
-    .append("path")
-    .datum(stateFeature)
+    .selectAll("path")
+    .data([stateFeature])
+    .join("path")
     .attr("class", "explore-data__boundary")
     .attr("fill", "url(#explore-data-mesh-pattern)")
     .attr("d", path);
@@ -236,6 +499,132 @@ function renderMap(svg, path, projection, stateFeature, forestPatches, valueKm2)
     });
 
   return patchSelection;
+}
+
+// ---------------------------------------------------------------------------
+// "All States" ranking overview
+// ---------------------------------------------------------------------------
+
+// Lays every mesh-value state out in one row, ranked highest to lowest, and
+// renders it as a static (non-scroll-driven) SVG the "All States" toggle
+// reveals in place. Every state is clickable - onSelectState(stateCode) is
+// called with the clicked state's AGS code, and the currently-selected one
+// is kept highlighted via setActiveRankingState(). Each state shows the same
+// mesh-grid + forest-patches picture as the detail view, via
+// forestPatchesByState (stateCode -> forest_patches.geojson, fetched
+// up front in setupExploreData).
+function renderRanking(svg, germany, meshValues, forestPatchesByState, onSelectState) {
+  const projection = geoIdentity().reflectY(true).fitExtent([[34, 34], [966, 966]], germany);
+  const path = geoPath(projection);
+  const svgSel = select(svg);
+  const defs = svgSel.select(".explore-data__ranking-mesh-defs");
+
+  const stateFeatureGroups = new Map();
+  germany.features.forEach((featureItem) => {
+    const stateCode = featureItem.properties.AGS;
+    if (!meshValues.has(stateCode)) return;
+    if (!stateFeatureGroups.has(stateCode)) stateFeatureGroups.set(stateCode, []);
+    stateFeatureGroups.get(stateCode).push(featureItem);
+  });
+
+  meshValues.forEach(({ valueKm2 }, stateCode) => {
+    meshPattern(defs, `explore-data-ranking-mesh-${stateCode}`, valueKm2, projection.scale());
+  });
+
+  const rankedStates = Array.from(stateFeatureGroups, ([stateCode, features]) => {
+    const { stateName, valueKm2 } = meshValues.get(stateCode);
+    const stateCollection = { type: "FeatureCollection", features };
+    const [[x0, y0], [x1, y1]] = path.bounds(stateCollection);
+    return { stateCode, stateName, valueKm2, stateCollection, width: x1 - x0, height: y1 - y0, x0, y0 };
+  }).sort((a, b) => b.valueKm2 - a.valueKm2);
+
+  const rowY = RANKING_VIEW_HEIGHT / 2 - Math.max(...rankedStates.map((item) => item.height)) / 2;
+  const labelY = rowY + Math.max(...rankedStates.map((item) => item.height)) + 40;
+  let cursor = 0;
+  const rankingItems = rankedStates.map((item) => {
+    const dx = cursor - item.x0;
+    const dy = rowY - item.y0;
+    const targetX = cursor + item.width / 2;
+    cursor += item.width + RANKING_GAP;
+    return { ...item, dx, dy, targetX };
+  });
+  svg.setAttribute("viewBox", `0 0 ${Math.max(cursor - RANKING_GAP + RANKING_TRAILING_SPACE, 1)} ${RANKING_VIEW_HEIGHT}`);
+
+  const statesLayer = svgSel.select(".explore-data__ranking-states");
+  const stateGroups = statesLayer.selectAll("g")
+    .data(rankingItems)
+    .join("g")
+    .attr("class", "explore-data__ranking-item")
+    .attr("data-state-code", ({ stateCode }) => stateCode);
+
+  stateGroups.append("path")
+    .attr("class", "explore-data__ranking-state")
+    .attr("data-state-code", ({ stateCode }) => stateCode)
+    .attr("d", ({ stateCollection }) => path(stateCollection))
+    .attr("fill", ({ stateCode }) => `url(#explore-data-ranking-mesh-${stateCode})`)
+    .style("--ranking-dx", ({ dx }) => `${dx}px`)
+    .style("--ranking-dy", ({ dy }) => `${dy}px`)
+    .attr("tabindex", 0)
+    .attr("role", "button")
+    .attr("aria-label", ({ stateName }) => `Show ${stateName}`);
+
+  // Forest patches sit on top of the mesh-filled boundary, sharing its
+  // translate via the same --ranking-dx/--ranking-dy custom properties.
+  // pointer-events: none (see CSS) keeps clicks/hover landing on the
+  // boundary path underneath rather than getting swallowed here.
+  stateGroups.each(function (d) {
+    const patches = forestPatchesByState.get(d.stateCode)?.features ?? [];
+    select(this).selectAll(".explore-data__ranking-patch")
+      .data(patches)
+      .join("path")
+      .attr("class", "explore-data__ranking-patch")
+      .attr("d", path)
+      .style("--ranking-dx", `${d.dx}px`)
+      .style("--ranking-dy", `${d.dy}px`);
+  });
+
+  stateGroups.append("line")
+    .attr("class", "explore-data__ranking-leader")
+    .attr("x1", ({ targetX }) => targetX)
+    .attr("y1", rowY + Math.max(...rankedStates.map((item) => item.height)) + 6)
+    .attr("x2", ({ targetX }) => targetX)
+    .attr("y2", labelY - 24);
+
+  const labels = stateGroups.append("text")
+    .attr("class", "explore-data__ranking-label")
+    .attr("data-state-code", ({ stateCode }) => stateCode)
+    .attr("x", ({ targetX }) => targetX)
+    .attr("y", labelY)
+    .attr("tabindex", 0)
+    .attr("role", "button");
+  labels.append("tspan")
+    .attr("x", ({ targetX }) => targetX)
+    .text(({ stateName }) => stateName);
+  labels.append("tspan")
+    .attr("class", "explore-data__ranking-label-value")
+    .attr("x", ({ targetX }) => targetX)
+    .attr("dy", 18)
+    .text(({ valueKm2 }) => `${valueKm2.toFixed(2)} km²`);
+
+  const selectFromEvent = (event) => {
+    const stateCode = event.currentTarget.dataset.stateCode;
+    if (stateCode) onSelectState(stateCode);
+  };
+  svgSel.selectAll(".explore-data__ranking-state, .explore-data__ranking-label")
+    .on("click", selectFromEvent)
+    .on("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        selectFromEvent(event);
+      }
+    });
+}
+
+// Moves the ranking's highlighted-state styling to whichever state is
+// currently shown in the detail view.
+function setActiveRankingState(svg, ags) {
+  select(svg).selectAll(".explore-data__ranking-state, .explore-data__ranking-label")
+    .classed("is-active", function () { return this.dataset.stateCode === ags; });
 }
 
 // ---------------------------------------------------------------------------
@@ -276,11 +665,18 @@ function showPatchInOverview(root, patchProps, patchEl) {
   const valueKm2 = root.dataset.meshKm2 ? Number(root.dataset.meshKm2) : null;
   if (!image || !square || !valueKm2) return;
 
-  image.src = `${DATA_ROOT}/forests/${patchProps.image}`;
+  image.src = `${root.dataset.dataRoot}/forests/${patchProps.image}`;
   image.alt = `Satellite image of ${patchProps.id}`;
   if (caption) caption.textContent = `${patchProps.id}, ${(patchProps.area_ha / 100).toFixed(1)} km². ${exploreDataContent.detail.overviewCaptionSuffix}`;
   root.querySelectorAll(".explore-data__patch.is-selected").forEach((patch) => patch.classList.remove("is-selected"));
   patchEl?.classList.add("is-selected");
+
+  // Keep the overview nav's prev/next position in sync even when the patch
+  // was picked by clicking/keying the map directly rather than stepping.
+  if (patchEl && root._patchNodes) {
+    const index = root._patchNodes.indexOf(patchEl);
+    if (index !== -1) root._patchIndex = index;
+  }
 
   setOverviewScale(root, image, square, patchProps.real_width_m, patchProps.real_height_m, valueKm2);
 }
