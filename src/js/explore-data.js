@@ -18,7 +18,11 @@ const MESH_CSV_URL = "/data/U06KG__2024.csv";
 const WALK_SPEED_KMH = 5;
 // Height of the "all states" ranking canvas; width is derived from the
 // states' own summed widths so the row can overflow into horizontal scroll.
-const RANKING_VIEW_HEIGHT = 700;
+// The SVG's rendered CSS height is fixed by its flex container regardless of
+// this number, so shrinking the viewBox's height denominator (states' own
+// size in viewBox units is unchanged) is what makes states render bigger -
+// /1.1 here is a deliberate +10% render-size bump.
+const RANKING_VIEW_HEIGHT = 700 / 1.1;
 const RANKING_GAP = 24;
 // Extra room past the last (smallest-mesh) state so it isn't flush against
 // the edge of the scrollable area when scrolled all the way right.
@@ -134,6 +138,26 @@ export async function setupExploreData() {
       )
     );
 
+    // The forest overview photo used to just fill its box (object-fit:
+    // contain), so every patch - regardless of real size - rendered at the
+    // same on-screen size. To make it genuinely true-to-scale instead, every
+    // photo shares one fixed metres-per-pixel ratio, calibrated here to the
+    // *median* patch dimension across all states - a typical-sized patch
+    // fills the box closely, smaller ones show with some empty space around
+    // them, and only the largest handful (up to ~2.6x the median) end up
+    // cropped, zoomed in on the box rather than shrunk to fit.
+    const patchDimensionsM = [];
+    forestPatchesByState.forEach((collection) => {
+      collection?.features?.forEach(({ properties }) => {
+        patchDimensionsM.push(properties.real_width_m, properties.real_height_m);
+      });
+    });
+    patchDimensionsM.sort((a, b) => a - b);
+    const mid = Math.floor(patchDimensionsM.length / 2);
+    root._patchScaleReferenceM = patchDimensionsM.length % 2 === 0
+      ? (patchDimensionsM[mid - 1] + patchDimensionsM[mid]) / 2
+      : patchDimensionsM[mid];
+
     const selectState = (ags) => loadStateDetail(root, svg, rankingSvg, germany, meshValues, ags, meshReferenceScale);
 
     renderRanking(rankingSvg, germany, meshValues, forestPatchesByState, (ags) => {
@@ -183,24 +207,28 @@ async function loadStateDetail(root, svg, rankingSvg, germany, meshValues, ags, 
   root._resetMapZoom?.();
 }
 
-// state_stats.json isn't published for every state yet (Mecklenburg-
-// Vorpommern, at least) - fall back to the mesh-size CSV (which does cover
-// all 16) and a walking-time estimate derived from it, leaving the two
-// fields with no CSV equivalent (unfragmented-forest share/area) unset
-// rather than guessing at numbers with no source.
+// state_stats.json isn't complete for every state yet (Mecklenburg-
+// Vorpommern, at least, is missing meff_km2/walking_time_min while still
+// having real unfragmented-forest figures) - fill in just the missing
+// fields from the mesh-size CSV (which does cover all 16) rather than
+// discarding the rest of a state's real published stats whenever any one
+// field is absent. Fields with no CSV equivalent (unfragmented-forest
+// share/area) stay unset if genuinely missing, rather than guessing.
 async function fetchStateStats(dataRoot, meshEntry) {
+  const cellSideMetres = Math.sqrt(meshEntry.valueKm2 * 1e6);
+  const diagonalMetres = cellSideMetres * Math.SQRT2;
+  const fallback = {
+    state: meshEntry.stateName,
+    meff_km2: meshEntry.valueKm2,
+    walking_time_min: (diagonalMetres / 1000 / WALK_SPEED_KMH) * 60,
+    unfragmented_forest_pct: null,
+    unfragmented_forest_km2: null
+  };
   try {
-    return await json(`${dataRoot}/state_stats.json`);
+    const stats = await json(`${dataRoot}/state_stats.json`);
+    return { ...fallback, ...stats };
   } catch {
-    const cellSideMetres = Math.sqrt(meshEntry.valueKm2 * 1e6);
-    const diagonalMetres = cellSideMetres * Math.SQRT2;
-    return {
-      state: meshEntry.stateName,
-      meff_km2: meshEntry.valueKm2,
-      walking_time_min: (diagonalMetres / 1000 / WALK_SPEED_KMH) * 60,
-      unfragmented_forest_pct: null,
-      unfragmented_forest_km2: null
-    };
+    return fallback;
   }
 }
 
@@ -228,9 +256,11 @@ function showRandomPatch(root, patchSelection) {
 // Holstein) genuinely have zero forest patches over the 50 km² threshold -
 // clear any previous state's leftover image rather than show it stale.
 function clearOverview(root) {
+  const overview = root.querySelector(".explore-data__overview");
   const image = root.querySelector(".explore-data__overview-image");
   const square = root.querySelector(".explore-data__overview-square");
   const caption = root.querySelector(".explore-data__overview-caption");
+  if (overview) overview.style.display = "none";
   if (image) { image.removeAttribute("src"); image.alt = ""; }
   if (square) { square.style.width = "0"; square.style.height = "0"; }
   if (caption) caption.textContent = exploreDataContent.detail.noForestCopy;
@@ -262,10 +292,12 @@ function switchExploreDataView(root, toAllStates) {
   if (root.classList.contains("is-all-states") === toAllStates) return;
   const outgoing = root.querySelectorAll(toAllStates ? DETAIL_VIEW_SELECTOR : RANKING_VIEW_SELECTOR);
   const incoming = root.querySelectorAll(toAllStates ? RANKING_VIEW_SELECTOR : DETAIL_VIEW_SELECTOR);
+  const introCopy = root.querySelector(".explore-data__intro-copy");
 
   outgoing.forEach((el) => { el.style.opacity = "0"; });
   window.setTimeout(() => {
     root.classList.toggle("is-all-states", toAllStates);
+    if (introCopy) introCopy.innerHTML = toAllStates ? exploreDataContent.detail.introCopyRanking : exploreDataContent.detail.introCopy;
     incoming.forEach((el) => { el.style.opacity = "0"; });
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -371,6 +403,15 @@ function wireFinishStory(root) {
 // control or the Finish Story link. Both explicitly unlock before they
 // trigger their own programmatic scroll (which isn't affected by the
 // lock - it only blocks user-initiated scroll input).
+//
+// Blocking wheel/touchmove/keydown covers the common input paths, but not
+// every way a page can scroll - dragging the browser's own scrollbar thumb,
+// for one, is a native mousedown/mousemove sequence that never dispatches
+// any of those three event types, so it slipped straight through. Rather
+// than trying to enumerate every possible input, preventScrollDrift adds a
+// second layer that just enforces the *result*: while locked, a "scroll"
+// event (fired for literally any reason - scrollbar drag included) snaps
+// the page straight back to the locked position. Belt and suspenders.
 // ---------------------------------------------------------------------------
 
 const SCROLL_LOCK_THRESHOLD = 0.95;
@@ -379,6 +420,7 @@ const SCROLL_LOCK_THRESHOLD = 0.95;
 const NAVIGATE_AWAY_SUPPRESS_MS = 1500;
 const SCROLL_KEYS = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "]);
 let scrollLockActive = false;
+let lockedScrollY = 0;
 // While true, the observer won't re-snap/re-lock. This can't be driven by
 // intersection ratio: the panel is shorter than the viewport, so "no longer
 // >= 95% visible" isn't reliably true until well after the escape scroll has
@@ -395,12 +437,20 @@ function preventScrollKey(event) {
   if (SCROLL_KEYS.has(event.key)) event.preventDefault();
 }
 
+function preventScrollDrift() {
+  if (window.scrollY !== lockedScrollY) {
+    window.scrollTo({ top: lockedScrollY, left: window.scrollX, behavior: "instant" });
+  }
+}
+
 function lockScroll() {
+  lockedScrollY = window.scrollY;
   if (scrollLockActive) return;
   scrollLockActive = true;
   window.addEventListener("wheel", preventScrollEvent, { passive: false });
   window.addEventListener("touchmove", preventScrollEvent, { passive: false });
   window.addEventListener("keydown", preventScrollKey, { passive: false });
+  window.addEventListener("scroll", preventScrollDrift, { passive: true });
 }
 
 function unlockScroll() {
@@ -409,6 +459,7 @@ function unlockScroll() {
   window.removeEventListener("wheel", preventScrollEvent);
   window.removeEventListener("touchmove", preventScrollEvent);
   window.removeEventListener("keydown", preventScrollKey);
+  window.removeEventListener("scroll", preventScrollDrift);
 }
 
 function beginNavigatingAway() {
@@ -426,6 +477,7 @@ function wireScrollLock(root) {
       if (entry.isIntersecting && entry.intersectionRatio >= SCROLL_LOCK_THRESHOLD) {
         root.scrollIntoView({ behavior: "instant", block: "start" });
         lockScroll();
+        forceExploreDataNav();
       } else {
         unlockScroll();
       }
@@ -433,6 +485,22 @@ function wireScrollLock(root) {
     { threshold: [0, 0.5, SCROLL_LOCK_THRESHOLD, 1] }
   );
   observer.observe(root);
+}
+
+// The Fragmentation chapter's own pinned scroll-jacking (applyMapStep in
+// scrollytelling.js) writes nav-link highlighting directly on every scroll
+// tick while it's active, and can occasionally race with this section's own
+// arrival right at the handoff boundary, leaving "4 Fragmentation"
+// highlighted a moment after the user has genuinely landed here. Once this
+// section is confirmed locked-in (see wireScrollLock above), assert
+// "5 Explore the Data" as the definitive answer rather than trusting
+// whichever system happened to write last.
+function forceExploreDataNav() {
+  document.querySelectorAll("[data-section-link]").forEach((link) => {
+    const isActive = link.dataset.sectionLink === "explore-data";
+    link.classList.toggle("is-active", isActive);
+    link.setAttribute("aria-current", isActive ? "location" : "false");
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -631,23 +699,26 @@ function setActiveRankingState(svg, ags) {
 // Detail screen: forest overview panel
 // ---------------------------------------------------------------------------
 
-// Scales the overview square so its side matches the mesh cell's real-world
-// size at whatever real-world width the currently displayed image covers.
-// The image sits in a fixed-aspect box via object-fit: contain, so its
-// element box (width/height) no longer equals its visible content bounds —
-// this derives the actual letterboxed content width from the two aspect
-// ratios before converting metres to pixels.
+// Sizes the overview photo and its mesh-size square both from one fixed,
+// state-independent metres-per-pixel ratio (root._patchScaleReferenceM, set
+// in setupExploreData), so a photo's on-screen size is genuinely
+// proportional to its real-world footprint instead of every patch being
+// stretched to fill the same box. The ratio is calibrated to the *median*
+// patch dimension, so a typical patch fills the box closely; smaller ones
+// render smaller with empty space around them (centred, see
+// .explore-data__overview-image's CSS), and the largest ones get cropped by
+// the container's overflow: hidden instead of shrunk to fit.
 function setOverviewScale(root, image, square, widthMetres, heightMetres, valueKm2) {
   const cellSideMetres = Math.sqrt(valueKm2 * 1e6);
+  const container = root.querySelector(".explore-data__overview");
+  const scaleReferenceM = root._patchScaleReferenceM;
   const applyScale = () => {
-    const containerRect = image.getBoundingClientRect();
+    if (!container || !scaleReferenceM) return;
+    const containerRect = container.getBoundingClientRect();
     if (!containerRect.width || !containerRect.height) return;
-    const naturalAspect = widthMetres / heightMetres;
-    const containerAspect = containerRect.width / containerRect.height;
-    const contentWidthPx = naturalAspect > containerAspect
-      ? containerRect.width
-      : containerRect.height * naturalAspect;
-    const pixelsPerMetre = contentWidthPx / widthMetres;
+    const pixelsPerMetre = Math.min(containerRect.width, containerRect.height) / scaleReferenceM;
+    image.style.width = `${widthMetres * pixelsPerMetre}px`;
+    image.style.height = `${heightMetres * pixelsPerMetre}px`;
     const sidePx = Math.max(cellSideMetres * pixelsPerMetre, 8);
     square.style.width = `${sidePx}px`;
     square.style.height = `${sidePx}px`;
@@ -659,15 +730,17 @@ function setOverviewScale(root, image, square, widthMetres, heightMetres, valueK
 
 function showPatchInOverview(root, patchProps, patchEl) {
   if (!root) return;
+  const overview = root.querySelector(".explore-data__overview");
   const image = root.querySelector(".explore-data__overview-image");
   const square = root.querySelector(".explore-data__overview-square");
   const caption = root.querySelector(".explore-data__overview-caption");
   const valueKm2 = root.dataset.meshKm2 ? Number(root.dataset.meshKm2) : null;
   if (!image || !square || !valueKm2) return;
 
+  if (overview) overview.style.display = "";
   image.src = `${root.dataset.dataRoot}/forests/${patchProps.image}`;
   image.alt = `Satellite image of ${patchProps.id}`;
-  if (caption) caption.textContent = `${patchProps.id}, ${(patchProps.area_ha / 100).toFixed(1)} km². ${exploreDataContent.detail.overviewCaptionSuffix}`;
+  if (caption) caption.textContent = `${exploreDataContent.detail.overviewSizeLabel}: ${(patchProps.area_ha / 100).toFixed(1)} km². ${exploreDataContent.detail.overviewCaptionSuffix}`;
   root.querySelectorAll(".explore-data__patch.is-selected").forEach((patch) => patch.classList.remove("is-selected"));
   patchEl?.classList.add("is-selected");
 

@@ -46,15 +46,18 @@ export const sections = [
 export const exploreData = {
   detail: {
     heading: "Explore the Data",
-    introCopy: "Explore the \"good forests\" to the right.",
+    introCopy: "Explore your state's unfragmented forests by interacting with them on the right.",
+    introCopyRanking: "You may now explore the ranking and explore <strong><em>the unfragmented forests.</em></strong><br /><br />or finish the <strong><em>story</em></strong>",
     continueLabel: "Finish the Story",
     backLabel: "All States",
     loadingStatus: "Loading state data…",
     errorStatus: "Data for this state could not be loaded.",
+    overviewSizeLabel: "Forest size",
     overviewCaptionSuffix: "The purple square shows the mesh size at this forest's scale.",
     noForestCopy: "This state has no unfragmented forest patches larger than 50 km².",
     overviewPrevLabel: "Show the previous forest patch",
     overviewNextLabel: "Show the next forest patch",
+    walkingTimeTooltip: "The mesh walking time is based on the mesh size for this state, converted to a square patch and measured corner to corner (the longest way across), assuming a walking speed of 5 km/h.",
     cardLabels: {
       mesh_size: "Mesh size",
       walking_time: "Walking Time per Mesh patch",

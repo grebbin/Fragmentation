@@ -296,7 +296,14 @@ function createExploreData() {
               <span class="explore-data__card-value">—</span>
             </div>
             <div class="explore-data__card" data-card="walking_time">
-              <span class="explore-data__card-label">${exploreData.detail.cardLabels.walking_time}</span>
+              <span class="explore-data__card-label">${exploreData.detail.cardLabels.walking_time}<span class="explore-data__info-icon" tabindex="0" role="button" aria-label="${exploreData.detail.walkingTimeTooltip}">
+                  <svg class="explore-data__info-icon-svg" viewBox="0 0 16 16" aria-hidden="true">
+                    <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.3" />
+                    <circle cx="8" cy="4.8" r="0.9" fill="currentColor" />
+                    <rect x="7.25" y="7" width="1.5" height="5" rx="0.75" fill="currentColor" />
+                  </svg>
+                  <span class="explore-data__tooltip" role="tooltip">${exploreData.detail.walkingTimeTooltip}</span>
+                </span></span>
               <span class="explore-data__card-value">—</span>
             </div>
             <div class="explore-data__card" data-card="pct_unfragmented">
