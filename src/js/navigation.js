@@ -115,6 +115,33 @@ export function createSideNavigation() {
   aside.querySelectorAll(".side-nav__link").forEach((link) => {
     link.addEventListener("click", closeMobileMenu);
   });
+  // Same-page navigation is handled manually everywhere else on this page
+  // (see the ".scroll-arrow" handler in scrollytelling.js) rather than
+  // relying on the browser's own default anchor-jump, which doesn't reliably
+  // scroll on this page. The side navigation's links need the same explicit
+  // handling now that some of them ("About", "References", "Sources") jump
+  // far down the page instead of just back to the top.
+  //
+  // This also doubles as the escape route for the "Explore the Data"
+  // section's scroll lock (see explore-data.js): it locks page scroll while
+  // fully in view, so any same-page jump from elsewhere needs to release
+  // that lock first, or it gets treated as drift and snapped straight back.
+  aside.querySelectorAll('a[href^="#"]').forEach((link) => {
+    link.addEventListener("click", (event) => {
+      // On mobile the logo's own handler (above) already used this same
+      // click to open the menu instead of navigating - don't also scroll.
+      if (event.defaultPrevented) return;
+      const target = document.querySelector(link.getAttribute("href"));
+      if (!target) return;
+      event.preventDefault();
+      window.dispatchEvent(new Event("explore-data:leave"));
+      history.pushState(null, "", link.getAttribute("href"));
+      target.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        block: "start"
+      });
+    });
+  });
   document.addEventListener("click", (event) => {
     if (!window.matchMedia("(max-width: 900px)").matches) return;
     if (event.target instanceof Node && !aside.contains(event.target)) closeMobileMenu();

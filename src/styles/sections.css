@@ -2363,3 +2363,114 @@ picture.end-sequence-section__media > img {
     margin-inline: auto;
   }
 }
+
+/* Static content screens: About, References, Sources - reached via the side
+   navigation rather than the main scrollytelling flow. Content lives in
+   content.js (the "about", "references" and "sources" exports). */
+.info-section {
+  padding: var(--section-padding-top) var(--page-padding-inline) 80px;
+}
+
+.info-section h2 {
+  margin: 0 0 var(--space-copy);
+  color: var(--color-title);
+  font-family: var(--font-ui);
+  font-size: var(--type-title);
+  font-weight: 600;
+}
+
+.info-section p {
+  margin: 0 0 var(--space-copy);
+  color: var(--color-text);
+  font-family: var(--font-story);
+  font-size: var(--type-story);
+  line-height: 1.5;
+}
+
+.info-section__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  max-width: 1200px;
+}
+
+.info-section__column h2:not(:first-child) {
+  margin-top: var(--space-facts);
+}
+
+.info-section__links {
+  margin: 0 0 var(--space-facts);
+  padding: 0;
+  list-style: none;
+}
+
+.info-section__links li {
+  margin-bottom: 8px;
+  font-family: var(--font-story);
+  font-size: var(--type-story);
+}
+
+.info-section__links a,
+.info-section__legal a {
+  text-decoration: underline;
+}
+
+.info-section__legal {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-ui);
+  font-size: var(--type-nav);
+}
+
+.info-section__list {
+  max-width: 1200px;
+  column-count: 2;
+  column-gap: 64px;
+  margin: 0;
+  padding: 0;
+}
+
+.info-section__list li,
+.info-section__list p {
+  margin: 0 0 var(--space-facts);
+  break-inside: avoid;
+  color: var(--color-text);
+  font-family: var(--font-story);
+  font-size: var(--type-story);
+  line-height: 1.5;
+}
+
+ol.info-section__list {
+  padding-left: 1.4em;
+}
+
+.info-section__list a {
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+
+.info-section__watermark {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  margin: 0;
+  color: var(--color-highlight);
+  font-family: var(--font-brand-flor);
+  font-size: 2rem;
+  font-weight: 400;
+  opacity: 0.35;
+  transform: translateX(-50%) rotate(180deg);
+  pointer-events: none;
+}
+
+@media (max-width: 900px) {
+  .info-section__grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-facts);
+  }
+
+  .info-section__list {
+    column-count: 1;
+  }
+}

@@ -485,6 +485,11 @@ function wireScrollLock(root) {
     { threshold: [0, 0.5, SCROLL_LOCK_THRESHOLD, 1] }
   );
   observer.observe(root);
+  // Any other same-page link (side navigation, logo, etc.) that jumps
+  // straight to a different section also needs to release the lock first,
+  // the same way the back control and Finish Story link already do -
+  // otherwise their jump gets treated as drift and snapped straight back.
+  window.addEventListener("explore-data:leave", beginNavigatingAway);
 }
 
 // The Fragmentation chapter's own pinned scroll-jacking (applyMapStep in
