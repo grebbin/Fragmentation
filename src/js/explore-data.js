@@ -32,6 +32,7 @@ const RANKING_SCROLL_STEP = 360;
 // in sections.css, so the display swap waits for the fade-out to finish.
 const RANKING_FADE_MS = 220;
 const MAP_ZOOM_MAX = 6;
+const OVERVIEW_ZOOM_MAX = 6;
 const DETAIL_VIEW_SELECTOR = ".explore-data__header, .explore-data__cards, .explore-data__map-wrap, .explore-data__overview, .explore-data__overview-caption, .explore-data__overview-nav";
 const RANKING_VIEW_SELECTOR = ".explore-data__ranking-scale, .explore-data__ranking-wrap";
 
@@ -142,21 +143,17 @@ export async function setupExploreData() {
     // contain), so every patch - regardless of real size - rendered at the
     // same on-screen size. To make it genuinely true-to-scale instead, every
     // photo shares one fixed metres-per-pixel ratio, calibrated here to the
-    // *median* patch dimension across all states - a typical-sized patch
-    // fills the box closely, smaller ones show with some empty space around
-    // them, and only the largest handful (up to ~2.6x the median) end up
-    // cropped, zoomed in on the box rather than shrunk to fit.
+    // single largest patch dimension across every state - that patch then
+    // fills the box edge-to-edge and every other, smaller patch renders
+    // smaller still, with empty space around it (centred, see
+    // .explore-data__overview-image's CSS). Nothing ever needs cropping.
     const patchDimensionsM = [];
     forestPatchesByState.forEach((collection) => {
       collection?.features?.forEach(({ properties }) => {
         patchDimensionsM.push(properties.real_width_m, properties.real_height_m);
       });
     });
-    patchDimensionsM.sort((a, b) => a - b);
-    const mid = Math.floor(patchDimensionsM.length / 2);
-    root._patchScaleReferenceM = patchDimensionsM.length % 2 === 0
-      ? (patchDimensionsM[mid - 1] + patchDimensionsM[mid]) / 2
-      : patchDimensionsM[mid];
+    root._patchScaleReferenceM = patchDimensionsM.reduce((max, value) => Math.max(max, value), 0);
 
     const selectState = (ags) => loadStateDetail(root, svg, rankingSvg, germany, meshValues, ags, meshReferenceScale);
 
@@ -168,6 +165,7 @@ export async function setupExploreData() {
     wireRankingDrag(root);
     wireMapZoom(root, svg);
     wireOverviewNav(root);
+    wireOverviewZoom(root);
     wireFinishStory(root);
     wireScrollLock(root);
     window.addEventListener("resize", () => root._overviewRescale?.());
@@ -266,6 +264,7 @@ function clearOverview(root) {
   if (caption) caption.textContent = exploreDataContent.detail.noForestCopy;
   root.querySelectorAll(".explore-data__patch.is-selected").forEach((patch) => patch.classList.remove("is-selected"));
   root._overviewRescale = undefined;
+  root._resetOverviewZoom?.();
 }
 
 // Steps the overview to the previous/next forest patch, wrapping around at
@@ -288,8 +287,15 @@ function wireOverviewNav(root) {
 // overview: fade the current view out, swap which is in the document flow
 // once it's invisible, then fade the new one in. Avoids the two views ever
 // being stacked on top of each other mid-transition.
+// Guards against re-entrant calls while a crossfade is already running (e.g.
+// several rapid scroll-up ticks while still on the detail view - see
+// preventScrollWheel/-Touch/-Key/-Drift below, which all redirect a first
+// scroll-up into this view switch rather than letting the page leave).
+let viewTransitionInProgress = false;
+
 function switchExploreDataView(root, toAllStates) {
-  if (root.classList.contains("is-all-states") === toAllStates) return;
+  if (viewTransitionInProgress || root.classList.contains("is-all-states") === toAllStates) return;
+  viewTransitionInProgress = true;
   const outgoing = root.querySelectorAll(toAllStates ? DETAIL_VIEW_SELECTOR : RANKING_VIEW_SELECTOR);
   const incoming = root.querySelectorAll(toAllStates ? RANKING_VIEW_SELECTOR : DETAIL_VIEW_SELECTOR);
   const introCopy = root.querySelector(".explore-data__intro-copy");
@@ -302,6 +308,7 @@ function switchExploreDataView(root, toAllStates) {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         incoming.forEach((el) => { el.style.opacity = "1"; });
+        viewTransitionInProgress = false;
       });
     });
   }, RANKING_FADE_MS);
@@ -390,6 +397,35 @@ function wireMapZoom(root, svg) {
   root._resetMapZoom = () => select(wrap).call(zoomBehavior.transform, zoomIdentity);
 }
 
+// Same wheel/pinch/drag-to-pan zoom as the detail map (wireMapZoom above),
+// applied to the forest overview photo instead. The transform lands on
+// .explore-data__overview-zoom - a plain wrapper around the image and its
+// mesh-size square - rather than on .explore-data__overview itself, so the
+// container's overflow: hidden keeps clipping the zoomed-in content instead
+// of the whole box growing with it. Wired once at setup since the container
+// is never replaced, only its image/caption content changes; each new patch
+// resets back to unzoomed via root._resetOverviewZoom (see showPatchInOverview
+// and clearOverview).
+function wireOverviewZoom(root) {
+  const container = root.querySelector(".explore-data__overview");
+  const layer = root.querySelector(".explore-data__overview-zoom");
+  if (!container || !layer) return;
+  const zoomBehavior = zoom()
+    .scaleExtent([1, OVERVIEW_ZOOM_MAX])
+    .on("zoom", (event) => {
+      layer.style.transform = `translate(${event.transform.x}px, ${event.transform.y}px) scale(${event.transform.k})`;
+      container.classList.toggle("is-zoomed", event.transform.k > 1);
+    });
+  const applyExtent = () => {
+    const rect = container.getBoundingClientRect();
+    zoomBehavior.extent([[0, 0], [rect.width, rect.height]]).translateExtent([[0, 0], [rect.width, rect.height]]);
+  };
+  applyExtent();
+  window.addEventListener("resize", applyExtent);
+  select(container).call(zoomBehavior);
+  root._resetOverviewZoom = () => select(container).call(zoomBehavior.transform, zoomIdentity);
+}
+
 // Plain anchor by default; just make sure the lock releases before it jumps.
 function wireFinishStory(root) {
   root.querySelector(".explore-data__continue")?.addEventListener("click", () => {
@@ -398,11 +434,15 @@ function wireFinishStory(root) {
 }
 
 // ---------------------------------------------------------------------------
-// Scroll lock: once this screen is fully in view, wheel/touch/keyboard
-// scrolling is blocked so the only way on or off it is the header's back
-// control or the Finish Story link. Both explicitly unlock before they
-// trigger their own programmatic scroll (which isn't affected by the
-// lock - it only blocks user-initiated scroll input).
+// Scroll lock: once this screen is fully in view, scrolling *further down*
+// (deeper into the story, past this screen) is blocked - the only ways
+// past it are the header's back control or the Finish Story link. Scrolling
+// *up* is always left alone in the sense that it's never fought to a stop,
+// but where it takes the user depends on which sub-view they're on: from the
+// detail view, a scroll-up switches to the "All States" ranking view (same
+// screen, just the crossfade) instead of leaving the section; only a scroll
+// -up from the ranking view actually exits back toward the Fragmentation
+// chapter.
 //
 // Blocking wheel/touchmove/keydown covers the common input paths, but not
 // every way a page can scroll - dragging the browser's own scrollbar thumb,
@@ -410,17 +450,52 @@ function wireFinishStory(root) {
 // any of those three event types, so it slipped straight through. Rather
 // than trying to enumerate every possible input, preventScrollDrift adds a
 // second layer that just enforces the *result*: while locked, a "scroll"
-// event (fired for literally any reason - scrollbar drag included) snaps
-// the page straight back to the locked position. Belt and suspenders.
+// event (fired for literally any reason - scrollbar drag included) that
+// left the page further down than the locked position snaps it straight
+// back, and one that drifted up while still on the detail view is treated
+// the same as any other scroll-up input - redirected into the view switch.
 // ---------------------------------------------------------------------------
 
 const SCROLL_LOCK_THRESHOLD = 0.95;
 // Long enough to cover the browser's default smooth-scroll duration for the
 // header-back jump (the longest of the two escape routes).
 const NAVIGATE_AWAY_SUPPRESS_MS = 1500;
-const SCROLL_KEYS = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "]);
+// Only the keys that move further down the page are blocked; Up/PageUp/Home
+// are left alone so keyboard users can always navigate back out (or, from
+// the detail view, into the ranking view - see redirectScrollUp below).
+const SCROLL_DOWN_KEYS = new Set(["ArrowDown", "PageDown", "End", " "]);
+const SCROLL_UP_KEYS = new Set(["ArrowUp", "PageUp", "Home"]);
 let scrollLockActive = false;
 let lockedScrollY = 0;
+let touchStartY = 0;
+// The locked section's root, so the scroll handlers below can tell whether
+// a scroll-up should redirect into the ranking view (detail view) or be left
+// alone to exit the section (ranking view already showing).
+let lockedRoot = null;
+// A single scroll-up gesture (trackpad momentum, a held key, several quick
+// wheel ticks) fires many events in a row. Without this, the very first
+// event switched to the ranking view but the rest of the *same* gesture then
+// read "already on the ranking view" and fell straight through, exiting the
+// section before the overview had a chance to actually show on screen. This
+// cooldown keeps absorbing scroll-up input for a bit after the switch, so
+// only a later, distinct scroll-up (after the user has seen the view) exits.
+const SCROLL_UP_EXIT_COOLDOWN_MS = 900;
+let rankingSwitchedAt = 0;
+
+// A scroll-up attempt while still on the detail view switches to the ranking
+// view instead of letting the page scroll away. Returns true if it redirected
+// or is still being absorbed by the post-switch cooldown above (caller should
+// treat the input as consumed), false if the scroll-up should proceed
+// normally (already on the ranking view, cooldown elapsed, or nothing locked).
+function redirectScrollUp() {
+  if (!lockedRoot) return false;
+  if (!lockedRoot.classList.contains("is-all-states")) {
+    switchExploreDataView(lockedRoot, true);
+    rankingSwitchedAt = Date.now();
+    return true;
+  }
+  return Date.now() - rankingSwitchedAt < SCROLL_UP_EXIT_COOLDOWN_MS;
+}
 // While true, the observer won't re-snap/re-lock. This can't be driven by
 // intersection ratio: the panel is shorter than the viewport, so "no longer
 // >= 95% visible" isn't reliably true until well after the escape scroll has
@@ -429,35 +504,76 @@ let lockedScrollY = 0;
 let isNavigatingAway = false;
 let navigatingAwayTimer = null;
 
-function preventScrollEvent(event) {
-  event.preventDefault();
-}
-
-function preventScrollKey(event) {
-  if (SCROLL_KEYS.has(event.key)) event.preventDefault();
-}
-
-function preventScrollDrift() {
-  if (window.scrollY !== lockedScrollY) {
-    window.scrollTo({ top: lockedScrollY, left: window.scrollX, behavior: "instant" });
+// Wheel: deltaY > 0 means scrolling down (content moves up) - block that.
+// deltaY < 0 (scrolling up) redirects into the ranking view while still on
+// the detail view; once redirectScrollUp returns false, the scroll proceeds.
+function preventScrollWheel(event) {
+  if (event.deltaY > 0) {
+    event.preventDefault();
+  } else if (event.deltaY < 0 && redirectScrollUp()) {
+    event.preventDefault();
   }
 }
 
-function lockScroll() {
+// Touch has no per-event delta like wheel does, so direction is inferred by
+// comparing the current finger position against where the touch started:
+// finger moving up the screen scrolls the page down, finger moving down
+// scrolls the page up.
+function recordTouchStart(event) {
+  touchStartY = event.touches[0]?.clientY ?? 0;
+}
+
+function preventScrollTouch(event) {
+  const currentY = event.touches[0]?.clientY ?? touchStartY;
+  if (currentY < touchStartY) {
+    event.preventDefault();
+  } else if (currentY > touchStartY && redirectScrollUp()) {
+    event.preventDefault();
+  }
+}
+
+function preventScrollKey(event) {
+  if (SCROLL_DOWN_KEYS.has(event.key)) {
+    event.preventDefault();
+  } else if (SCROLL_UP_KEYS.has(event.key) && redirectScrollUp()) {
+    event.preventDefault();
+  }
+}
+
+// Catches every other way the page could scroll (scrollbar drag, browser
+// extensions, etc.) without going through the handlers above: downward
+// drift always snaps back, and upward drift is redirected into the ranking
+// view the same way a direct scroll-up input would be, while still on the
+// detail view.
+function preventScrollDrift() {
+  if (window.scrollY > lockedScrollY) {
+    window.scrollTo({ top: lockedScrollY, left: window.scrollX, behavior: "instant" });
+  } else if (window.scrollY < lockedScrollY) {
+    if (redirectScrollUp()) {
+      window.scrollTo({ top: lockedScrollY, left: window.scrollX, behavior: "instant" });
+    }
+  }
+}
+
+function lockScroll(root) {
   lockedScrollY = window.scrollY;
+  lockedRoot = root;
   if (scrollLockActive) return;
   scrollLockActive = true;
-  window.addEventListener("wheel", preventScrollEvent, { passive: false });
-  window.addEventListener("touchmove", preventScrollEvent, { passive: false });
+  window.addEventListener("wheel", preventScrollWheel, { passive: false });
+  window.addEventListener("touchstart", recordTouchStart, { passive: true });
+  window.addEventListener("touchmove", preventScrollTouch, { passive: false });
   window.addEventListener("keydown", preventScrollKey, { passive: false });
   window.addEventListener("scroll", preventScrollDrift, { passive: true });
 }
 
 function unlockScroll() {
+  lockedRoot = null;
   if (!scrollLockActive) return;
   scrollLockActive = false;
-  window.removeEventListener("wheel", preventScrollEvent);
-  window.removeEventListener("touchmove", preventScrollEvent);
+  window.removeEventListener("wheel", preventScrollWheel);
+  window.removeEventListener("touchstart", recordTouchStart);
+  window.removeEventListener("touchmove", preventScrollTouch);
   window.removeEventListener("keydown", preventScrollKey);
   window.removeEventListener("scroll", preventScrollDrift);
 }
@@ -476,7 +592,7 @@ function wireScrollLock(root) {
       const entry = entries[0];
       if (entry.isIntersecting && entry.intersectionRatio >= SCROLL_LOCK_THRESHOLD) {
         root.scrollIntoView({ behavior: "instant", block: "start" });
-        lockScroll();
+        lockScroll(root);
         forceExploreDataNav();
       } else {
         unlockScroll();
@@ -708,11 +824,10 @@ function setActiveRankingState(svg, ags) {
 // state-independent metres-per-pixel ratio (root._patchScaleReferenceM, set
 // in setupExploreData), so a photo's on-screen size is genuinely
 // proportional to its real-world footprint instead of every patch being
-// stretched to fill the same box. The ratio is calibrated to the *median*
-// patch dimension, so a typical patch fills the box closely; smaller ones
-// render smaller with empty space around them (centred, see
-// .explore-data__overview-image's CSS), and the largest ones get cropped by
-// the container's overflow: hidden instead of shrunk to fit.
+// stretched to fill the same box. The ratio is calibrated to the single
+// largest patch dimension seen across every state, so that patch fills the
+// box edge-to-edge and every other, smaller patch renders smaller still,
+// centred with empty space around it - nothing is ever cropped.
 function setOverviewScale(root, image, square, widthMetres, heightMetres, valueKm2) {
   const cellSideMetres = Math.sqrt(valueKm2 * 1e6);
   const container = root.querySelector(".explore-data__overview");
@@ -757,4 +872,5 @@ function showPatchInOverview(root, patchProps, patchEl) {
   }
 
   setOverviewScale(root, image, square, patchProps.real_width_m, patchProps.real_height_m, valueKm2);
+  root._resetOverviewZoom?.();
 }

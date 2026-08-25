@@ -268,8 +268,10 @@ function createExploreData() {
           <p class="explore-data__intro-copy">${exploreData.detail.introCopy}</p>
           <p class="explore-data__overview-caption"></p>
           <div class="explore-data__overview">
-            <img class="explore-data__overview-image" alt="" />
-            <div class="explore-data__overview-square" aria-hidden="true"></div>
+            <div class="explore-data__overview-zoom">
+              <img class="explore-data__overview-image" alt="" />
+              <div class="explore-data__overview-square" aria-hidden="true"></div>
+            </div>
           </div>
           <div class="explore-data__overview-nav">
             <button type="button" class="explore-data__overview-prev" aria-label="${exploreData.detail.overviewPrevLabel}"><img src="/media/arrow_left.svg" alt="" /></button>

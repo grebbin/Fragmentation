@@ -1792,11 +1792,31 @@ picture.end-sequence-section__media > img {
   font-family: Georgia, serif;
 }
 
+/* introCopy (content.js) carries both phrasings inline so the same string
+   works whether it's set on initial render or on every detail/ranking view
+   swap (switchExploreDataView) - only one of the two ever shows, picked by
+   viewport width rather than duplicating the whole sentence per breakpoint. */
+.explore-data__intro-mobile {
+  display: none;
+}
+
 .explore-data__overview {
   position: relative;
   flex-shrink: 0;
   aspect-ratio: 1 / 1;
   overflow: hidden;
+  cursor: zoom-in;
+  touch-action: none;
+}
+
+.explore-data__overview.is-zoomed {
+  cursor: grab;
+}
+
+.explore-data__overview-zoom {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
 }
 
 .explore-data__overview-image {
@@ -2314,10 +2334,16 @@ picture.end-sequence-section__media > img {
     height: 100dvh;
   }
 
+  /* The detail view's media panel (header/cards only - see .explore-data__
+     map-wrap and .explore-data__legend below) is far shorter than the
+     ranking view's, so it takes just the height its content needs instead
+     of a fixed half-screen split. That leaves the copy panel - title, intro
+     text and the satellite photo - the rest of the screen, so the photo,
+     its prev/next buttons and "Finish the Story" all fit without scrolling. */
   .explore-data__stage {
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: var(--column-row-height) var(--column-row-height);
+    grid-template-rows: auto 1fr;
   }
 
   /* The ranking view's copy panel only holds a couple of lines of intro
@@ -2330,7 +2356,7 @@ picture.end-sequence-section__media > img {
 
   .explore-data__media {
     grid-row: 1;
-    height: 100%;
+    height: auto;
     gap: 12px;
     padding: var(--section-padding-top) var(--panel-padding-inline) var(--panel-padding-bottom);
     /* Nav bar is ~46px tall on mobile - 24px below that keeps both the
@@ -2342,6 +2368,7 @@ picture.end-sequence-section__media > img {
   .explore-data__copy {
     grid-row: 2;
     height: 100%;
+    gap: 10px;
     padding: var(--panel-padding-top) var(--panel-padding-inline) var(--panel-padding-bottom);
     /* Sound control button is a fixed 40px circle sitting 20px above the
        viewport bottom - 32px above *that* keeps "Finish the Story" clear
@@ -2357,10 +2384,40 @@ picture.end-sequence-section__media > img {
     padding: 10px 12px;
   }
 
+  /* The state-wide mesh map is the detail view's tallest element by far and
+     duplicates what the cards above already say in numbers - dropping it
+     (and the legend describing its colours) is what gives the copy panel
+     room to grow below. Both stay untouched on desktop. */
   .explore-data__map-wrap {
-    min-height: 0;
-    max-width: 280px;
-    margin-inline: auto;
+    display: none;
+  }
+
+  .explore-data:not(.is-all-states) .explore-data__legend {
+    display: none;
+  }
+
+  .explore-data__intro-desktop {
+    display: none;
+  }
+
+  .explore-data__intro-mobile {
+    display: inline;
+  }
+
+  /* No longer pinned to a 1:1 square - it grows to fill whatever room the
+     now-taller copy panel leaves after the text above it, so the photo
+     itself reads bigger and prev/next/"Finish the Story" stay in view. The
+     true-to-scale sizing in explore-data.js already measures this box's
+     actual rendered size, so a taller box just means more empty space
+     around smaller patches, never any cropping. */
+  .explore-data__overview {
+    aspect-ratio: unset;
+    flex: 1 1 auto;
+    /* Scales with the viewport's own height rather than a fixed px floor,
+       so short/older phones give proportionally less room to the photo
+       instead of pushing the prev/next buttons and "Finish the Story"
+       further off-screen. */
+    min-height: clamp(140px, 24dvh, 210px);
   }
 }
 

@@ -46,14 +46,14 @@ export const sections = [
 export const exploreData = {
   detail: {
     heading: "Explore the Data",
-    introCopy: "Explore your state's unfragmented forests by interacting with them on the right.",
+    introCopy: "Explore your state's unfragmented forests by <span class=\"explore-data__intro-desktop\">interacting with them on the right</span><span class=\"explore-data__intro-mobile\">clicking the arrows below</span>.",
     introCopyRanking: "You may now explore the ranking and explore <strong><em>the unfragmented forests.</em></strong><br /><br />or finish the <strong><em>story</em></strong>",
     continueLabel: "Finish the Story",
     backLabel: "All States",
     loadingStatus: "Loading state data…",
     errorStatus: "Data for this state could not be loaded.",
     overviewSizeLabel: "Forest size",
-    overviewCaptionSuffix: "The purple square shows the mesh size at this forest's scale.",
+    overviewCaptionSuffix: "The purple square shows the mesh size at true scale, drawn to match the same real-world size as the forest behind it.",
     noForestCopy: "This state has no unfragmented forest patches larger than 50 km².",
     overviewPrevLabel: "Show the previous forest patch",
     overviewNextLabel: "Show the next forest patch",
@@ -95,8 +95,8 @@ export const about = {
     { label: "IÖR Monitor", url: "https://monitor.ioer.de/" }
   ],
   legalLinks: [
-    { label: "Datenschutzhinweis", url: "" },
-    { label: "Impressum", url: "" }
+    { label: "Datenschutzhinweis", url: "https://www.fh-potsdam.de/datenschutz" },
+    { label: "Impressum", url: "https://www.fh-potsdam.de/impressum" }
   ]
 };
 
