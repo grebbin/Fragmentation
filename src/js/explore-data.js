@@ -33,7 +33,7 @@ const RANKING_SCROLL_STEP = 360;
 const RANKING_FADE_MS = 220;
 const MAP_ZOOM_MAX = 6;
 const OVERVIEW_ZOOM_MAX = 6;
-const DETAIL_VIEW_SELECTOR = ".explore-data__header, .explore-data__cards, .explore-data__map-wrap, .explore-data__overview, .explore-data__overview-caption, .explore-data__overview-nav";
+const DETAIL_VIEW_SELECTOR = ".explore-data__header, .explore-data__cards, .explore-data__map-wrap, .explore-data__overview, .explore-data__overview-caption, .explore-data__overview-nav, .explore-data__state-nav";
 const RANKING_VIEW_SELECTOR = ".explore-data__ranking-scale, .explore-data__ranking-wrap";
 
 // Every state's assets live under its own lower-cased folder name, e.g.
@@ -157,15 +157,20 @@ export async function setupExploreData() {
 
     const selectState = (ags) => loadStateDetail(root, svg, rankingSvg, germany, meshValues, ags, meshReferenceScale);
 
-    renderRanking(rankingSvg, germany, meshValues, forestPatchesByState, (ags) => {
+    const rankedStates = renderRanking(rankingSvg, germany, meshValues, forestPatchesByState, (ags) => {
       switchExploreDataView(root, false);
       void selectState(ags);
     });
+    // Same ranked (mesh-size descending) order as the horizontal ranking
+    // list, reused so the desktop state-nav arrows (wireStateNav) step
+    // through states in the order the user already sees them ranked in.
+    root._rankedStateCodes = rankedStates.map(({ stateCode }) => stateCode);
     wireAllStatesToggle(root);
     wireRankingDrag(root);
     wireMapZoom(root, svg);
     wireOverviewNav(root);
     wireOverviewZoom(root);
+    wireStateNav(root, selectState);
     wireFinishStory(root);
     wireScrollLock(root);
     window.addEventListener("resize", () => root._overviewRescale?.());
@@ -198,6 +203,7 @@ async function loadStateDetail(root, svg, rankingSvg, germany, meshValues, ags, 
   const path = geoPath(projection);
 
   root.dataset.dataRoot = dataRoot;
+  root.dataset.currentAgs = ags;
   renderCards(root, stateStats);
   const patchSelection = renderMap(svg, path, stateFeature, forestPatches, stateStats.meff_km2, meshReferenceScale);
   showRandomPatch(root, patchSelection);
@@ -281,6 +287,23 @@ function wireOverviewNav(root) {
   };
   root.querySelector(".explore-data__overview-prev")?.addEventListener("click", () => step(-1));
   root.querySelector(".explore-data__overview-next")?.addEventListener("click", () => step(1));
+}
+
+// Desktop-only counterpart to wireOverviewNav (see the CSS swap in
+// sections.css): rather than stepping through the current state's forest
+// photos, these arrows step through *states* themselves, in the same
+// ranked (mesh-size descending) order as the horizontal ranking list
+// (root._rankedStateCodes, set once in setupExploreData).
+function wireStateNav(root, selectState) {
+  const step = (delta) => {
+    const codes = root._rankedStateCodes;
+    if (!codes || !codes.length) return;
+    const currentIndex = codes.indexOf(root.dataset.currentAgs);
+    const nextIndex = (currentIndex + delta + codes.length) % codes.length;
+    void selectState(codes[nextIndex]);
+  };
+  root.querySelector(".explore-data__state-prev")?.addEventListener("click", () => step(-1));
+  root.querySelector(".explore-data__state-next")?.addEventListener("click", () => step(1));
 }
 
 // Crossfades the media panel between the Bayern detail view and the ranked
@@ -701,7 +724,9 @@ function renderMap(svg, path, stateFeature, forestPatches, valueKm2, meshReferen
 // is kept highlighted via setActiveRankingState(). Each state shows the same
 // mesh-grid + forest-patches picture as the detail view, via
 // forestPatchesByState (stateCode -> forest_patches.geojson, fetched
-// up front in setupExploreData).
+// up front in setupExploreData). Returns the ranked state list (highest
+// mesh size first) so the caller can reuse the same order elsewhere - see
+// root._rankedStateCodes/wireStateNav.
 function renderRanking(svg, germany, meshValues, forestPatchesByState, onSelectState) {
   const projection = geoIdentity().reflectY(true).fitExtent([[34, 34], [966, 966]], germany);
   const path = geoPath(projection);
@@ -807,6 +832,8 @@ function renderRanking(svg, germany, meshValues, forestPatchesByState, onSelectS
         selectFromEvent(event);
       }
     });
+
+  return rankedStates;
 }
 
 // Moves the ranking's highlighted-state styling to whichever state is

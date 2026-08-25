@@ -410,11 +410,15 @@ function applyMapStep(stepIndex, stepProgress = 1) {
       : lerp(1000, forestDetailHeight, zoomReveal);
     forestMapSvg.setAttribute("viewBox", `${viewX} ${viewY} ${viewWidth} ${viewHeight}`);
   }
-  // Once the ranking fan-out takes over the screen (same threshold that
-  // switches the map into "is-ranking" display mode), this step visually and
-  // thematically belongs to the "Explore the Data" chapter it leads into,
-  // even though it's still rendered inside the same .map-section DOM element.
-  const activeMapSection = stepIndex < 0 ? "route" : rankingReveal > 0 ? "explore-data" : "fragmentation";
+  // The map visually blends into ranking-style mode from step 8 onward (see
+  // "is-ranking" below), but the copy keeps narrating "Fragmentation" content
+  // (mesh size, Bayern/Thueringen walking-distance facts) all the way through
+  // the last map step - so this element's own nav label always stays
+  // "fragmentation" (or "route" before the chapter starts). The real
+  // "Explore the Data" chapter is a separate #explore-data section right
+  // after this one, and switches the nav itself via observeSections() once
+  // the user actually scrolls into it.
+  const activeMapSection = stepIndex < 0 ? "route" : "fragmentation";
   section.dataset.section = activeMapSection;
   document.querySelectorAll("[data-section-link]").forEach((link) => {
     const isActive = link.dataset.sectionLink === activeMapSection;
@@ -503,6 +507,22 @@ export function setupScrollScenes() {
     });
   };
 
+  let pendingMapStep = null;
+  let mapStepScheduled = false;
+  // Same one-update-per-frame guard as requestUpdate above, but for
+  // applyMapStep specifically: Scrollama's progress-tracking observer can
+  // call onStepEnter/onStepProgress more than once per frame, and each call
+  // is expensive (layout reads/writes, 3D re-render) - coalesce to the latest.
+  const requestMapStepUpdate = (stepIndex, stepProgress) => {
+    pendingMapStep = [stepIndex, stepProgress];
+    if (mapStepScheduled) return;
+    mapStepScheduled = true;
+    requestAnimationFrame(() => {
+      mapStepScheduled = false;
+      applyMapStep(...pendingMapStep);
+    });
+  };
+
   if (typeof scrollama === "function") {
     // This instance controls the detailed numbered steps inside the map.
     const mapScroller = scrollama();
@@ -515,11 +535,10 @@ export function setupScrollScenes() {
         order: true
       })
       .onStepEnter(({ element, progress }) => {
-        applyMapStep(Number(element.dataset.mapStep), progress ?? 0);
+        requestMapStepUpdate(Number(element.dataset.mapStep), progress ?? 0);
       })
       .onStepProgress(({ element, progress }) => {
-        const stepIndex = Number(element.dataset.mapStep);
-        applyMapStep(stepIndex, progress);
+        requestMapStepUpdate(Number(element.dataset.mapStep), progress);
       });
     // This instance watches whole chapters and refreshes general animations.
     const sceneScroller = scrollama();

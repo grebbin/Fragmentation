@@ -57,6 +57,8 @@ export const exploreData = {
     noForestCopy: "This state has no unfragmented forest patches larger than 50 km².",
     overviewPrevLabel: "Show the previous forest patch",
     overviewNextLabel: "Show the next forest patch",
+    statePrevLabel: "Show the previous state",
+    stateNextLabel: "Show the next state",
     walkingTimeTooltip: "The mesh walking time is based on the mesh size for this state, converted to a square patch and measured corner to corner (the longest way across), assuming a walking speed of 5 km/h.",
     cardLabels: {
       mesh_size: "Mesh size",

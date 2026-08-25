@@ -335,6 +335,10 @@ function createExploreData() {
             </svg>
             <p class="explore-data__status">${exploreData.detail.loadingStatus}</p>
           </div>
+          <div class="explore-data__state-nav">
+            <button type="button" class="explore-data__state-prev" aria-label="${exploreData.detail.statePrevLabel}"><img src="/media/arrow_left.svg" alt="" /></button>
+            <button type="button" class="explore-data__state-next" aria-label="${exploreData.detail.stateNextLabel}"><img src="/media/arrow_right.svg" alt="" /></button>
+          </div>
           <div class="explore-data__ranking-wrap">
             <div class="explore-data__ranking-scroll" tabindex="0" role="region" aria-label="All German states ranked by mesh size, scroll to see more">
               <svg class="explore-data__ranking-svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="explore-data-ranking-title">

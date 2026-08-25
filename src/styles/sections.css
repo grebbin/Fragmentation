@@ -1846,14 +1846,26 @@ picture.end-sequence-section__media > img {
   line-height: 1.5;
 }
 
-.explore-data__overview-nav {
-  display: flex;
+.explore-data__overview-nav,
+.explore-data__state-nav {
   justify-content: center;
   gap: 12px;
 }
 
+.explore-data__overview-nav {
+  display: flex;
+}
+
+/* Desktop-only stand-in for .explore-data__overview-nav - see the min-width
+   companion to the mobile block below, which swaps which of the two shows. */
+.explore-data__state-nav {
+  display: none;
+}
+
 .explore-data__overview-prev,
-.explore-data__overview-next {
+.explore-data__overview-next,
+.explore-data__state-prev,
+.explore-data__state-next {
   display: grid;
   width: 40px;
   height: 40px;
@@ -1868,16 +1880,31 @@ picture.end-sequence-section__media > img {
 }
 
 .explore-data__overview-prev:hover,
-.explore-data__overview-next:hover {
+.explore-data__overview-next:hover,
+.explore-data__state-prev:hover,
+.explore-data__state-next:hover {
   color: var(--color-title);
   background: var(--color-nav-chosen);
 }
 
 .explore-data__overview-prev img,
-.explore-data__overview-next img {
+.explore-data__overview-next img,
+.explore-data__state-prev img,
+.explore-data__state-next img {
   width: 18px;
   height: auto;
   display: block;
+  transition: filter 150ms ease;
+}
+
+/* The arrow icons are external SVG files loaded via <img>, so they don't
+   inherit the button's CSS `color` (currentColor doesn't cross that
+   boundary) - forcing them to pure white on hover needs a filter instead. */
+.explore-data__overview-prev:hover img,
+.explore-data__overview-next:hover img,
+.explore-data__state-prev:hover img,
+.explore-data__state-next:hover img {
+  filter: brightness(0) invert(1);
 }
 
 .explore-data__continue {
@@ -1925,6 +1952,7 @@ picture.end-sequence-section__media > img {
 .explore-data__overview,
 .explore-data__overview-caption,
 .explore-data__overview-nav,
+.explore-data__state-nav,
 .explore-data__ranking-scale,
 .explore-data__ranking-wrap {
   transition: opacity 220ms ease;
@@ -2242,6 +2270,12 @@ picture.end-sequence-section__media > img {
   width: 20px;
   height: auto;
   display: block;
+  transition: filter 150ms ease;
+}
+
+.explore-data__ranking-prev:hover img,
+.explore-data__ranking-next:hover img {
+  filter: brightness(0) invert(1);
 }
 
 .explore-data__ranking-state {
@@ -2319,7 +2353,8 @@ picture.end-sequence-section__media > img {
 .explore-data.is-all-states .explore-data__map-wrap,
 .explore-data.is-all-states .explore-data__overview,
 .explore-data.is-all-states .explore-data__overview-caption,
-.explore-data.is-all-states .explore-data__overview-nav {
+.explore-data.is-all-states .explore-data__overview-nav,
+.explore-data.is-all-states .explore-data__state-nav {
   display: none;
 }
 
@@ -2418,6 +2453,21 @@ picture.end-sequence-section__media > img {
        instead of pushing the prev/next buttons and "Finish the Story"
        further off-screen. */
     min-height: clamp(140px, 24dvh, 210px);
+  }
+}
+
+/* Desktop-only companion to the mobile block above: the prev/next arrows
+   move from cycling this state's forest photos (in the copy panel, left
+   side) to cycling between states (below the state mesh-map, right side,
+   in ranked mesh-size order - see wireStateNav in explore-data.js). Mobile
+   keeps the forest-photo arrows in their original spot untouched. */
+@media (min-width: 901px) {
+  .explore-data__overview-nav {
+    display: none;
+  }
+
+  .explore-data__state-nav {
+    display: flex;
   }
 }
 
