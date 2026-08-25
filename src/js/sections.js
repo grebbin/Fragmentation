@@ -77,13 +77,10 @@ function createStorySections() {
   const sharedAnimationSrc = stories.find((story) => story.animation?.src)?.animation.src;
   const media = stories.map((story, index) => {
     const visual = `<img class="story-chapter-section__visual" src="${story.image}" alt="" />`;
-    const loopSound = story.loopSound
-      ? `<audio data-story-loop="${index}" src="${story.loopSound}" loop preload="metadata"></audio>`
+    const audio = story.audio?.src
+      ? `<audio data-story-audio="${index}" src="${story.audio.src}" preload="metadata"></audio>`
       : "";
-    const onceSound = story.onceSound
-      ? `<audio data-story-once="${index}" src="${story.onceSound}" preload="metadata"></audio>`
-      : "";
-    return `<div class="story-chapter-section__media-item" data-story-media="${index}">${visual}${loopSound}${onceSound}</div>`;
+    return `<div class="story-chapter-section__media-item" data-story-media="${index}">${visual}${audio}</div>`;
   }).join("");
   // The cards are visually stacked, so separate document-positioned trigger
   // elements give Scrollama one real scroll range per story.
