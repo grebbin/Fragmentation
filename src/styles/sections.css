@@ -2422,10 +2422,73 @@ picture.end-sequence-section__media > img {
 }
 
 /* Static content screens: About, References, Sources - reached via the side
-   navigation rather than the main scrollytelling flow. Content lives in
-   content.js (the "about", "references" and "sources" exports). */
+   navigation as their own full-screen overlay rather than by scrolling
+   through the main story (see info-pages.js). Content lives in content.js
+   (the "about", "references" and "sources" exports). */
+.info-overlay {
+  position: fixed;
+  inset: 0 0 0 var(--side-nav-width);
+  z-index: 90;
+  overflow-y: auto;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease, visibility 200ms;
+}
+
+.info-overlay.is-open {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.info-overlay__panel {
+  position: relative;
+  display: none;
+  min-height: 100%;
+  color: var(--color-text);
+  background: var(--color-background);
+}
+
+.info-overlay__panel.is-active {
+  display: block;
+}
+
+.info-overlay__close {
+  position: absolute;
+  top: 72px;
+  left: var(--page-padding-inline);
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  color: var(--color-text);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: var(--type-nav);
+  font-weight: 600;
+}
+
+.info-overlay__close:is(:hover, :focus-visible) {
+  color: var(--color-highlight);
+}
+
+.info-overlay__close-arrow {
+  font-size: 1.1em;
+}
+
+@media (max-width: 900px) {
+  .info-overlay__close {
+    top: 52px;
+  }
+}
+
 .info-section {
-  padding: var(--section-padding-top) var(--page-padding-inline) 80px;
+  /* 32px below the "Back to story" control (top: 72px + its own height). */
+  padding: 125px var(--page-padding-inline) 80px;
 }
 
 .info-section h2 {
@@ -2511,17 +2574,19 @@ ol.info-section__list {
   position: absolute;
   bottom: 32px;
   left: 50%;
-  margin: 0;
-  color: var(--color-highlight);
-  font-family: var(--font-brand-flor);
-  font-size: 2rem;
-  font-weight: 400;
+  width: min(320px, calc(100% - 64px));
+  height: auto;
   opacity: 0.35;
   transform: translateX(-50%) rotate(180deg);
   pointer-events: none;
 }
 
 @media (max-width: 900px) {
+  .info-section {
+    /* 32px below the "Back to story" control (top: 52px + its own height). */
+    padding-top: 102px;
+  }
+
   .info-section__grid {
     grid-template-columns: 1fr;
     gap: var(--space-facts);

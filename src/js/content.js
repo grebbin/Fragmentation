@@ -83,7 +83,7 @@ export const exploreData = {
 export const about = {
   aboutHeading: "About the project",
   aboutParagraphs: [
-    "This data visualization project was created during the summer semester of 2026 as part of the seminar “Visualizing Sustainability Models” supervised by Prof. Francesca Morini and Erik Weiss, at the University of Applied Sciences Potsdam.",
+    "This data visualization project was created during the summer semester of 2026 as part of the seminar “Visualizing Sustainability Models” supervised by Dr. Francesca Morini and Erik Weiss, at the University of Applied Sciences Potsdam.",
     "A project by Gregor Fiedler, Jenny Lermander, Natalia Pawlik.",
     "Published in one of the hottest summer – 2026."
   ],

@@ -11,6 +11,12 @@
   transition: opacity 100ms linear;
 }
 
+/* The chapter nav belongs to the scrolling story - hide it while the
+   About/References/Sources overlay (see info-pages.js) is open. */
+body.has-info-overlay-open .main-nav {
+  display: none;
+}
+
 /* Side navigation: one stable vertical flow on desktop and mobile. */
 .side-nav {
   padding: 14px 0 16px;
@@ -139,7 +145,7 @@
   font-family: var(--font-brand-flor);
 }
 
-.side-nav__link:is(:hover, :focus-visible) {
+.side-nav__link:is(:hover, :focus-visible, .is-active) {
   color: var(--color-side-nav-hover);
   background: transparent;
   font-weight: 600;
@@ -280,6 +286,15 @@
   .site-shell:has(.side-nav.is-open) #main-content {
     width: calc(100% - var(--side-nav-open-width));
     margin-left: var(--side-nav-open-width);
+  }
+
+  .info-overlay {
+    inset: 0;
+    transition: opacity 200ms ease, visibility 200ms, left 250ms ease;
+  }
+
+  .site-shell:has(.side-nav.is-open) .info-overlay {
+    left: var(--side-nav-open-width);
   }
 
   .main-nav {

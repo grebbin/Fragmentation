@@ -66,6 +66,13 @@ body {
   background: var(--color-background);
 }
 
+/* The About/References/Sources overlay (see info-pages.js) covers the
+   viewport and scrolls internally - this stops the story underneath from
+   also scrolling while it's open. */
+body.has-info-overlay-open {
+  overflow: hidden;
+}
+
 a {
   color: inherit;
   text-decoration: none;

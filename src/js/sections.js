@@ -1,4 +1,4 @@
-import { sections, stories, exploreData, about, references, sources } from "./content.js";
+import { sections, stories, exploreData } from "./content.js";
 import { createScrollArrow } from "./navigation.js";
 
 function baseSection(index) {
@@ -386,65 +386,8 @@ function createEndSequence() {
   `;
   return section;
 }
-// Create the static "About" screen, reached via the side navigation.
-function createAbout() {
-  const section = document.createElement("section");
-  section.id = "about";
-  section.className = "story-section info-section";
-  section.dataset.theme = "light";
-  section.innerHTML = `
-    <div class="info-section__grid">
-      <div class="info-section__column">
-        <h2>${about.aboutHeading}</h2>
-        ${about.aboutParagraphs.map((paragraph) => `<p>${paragraph}</p>`).join("")}
-      </div>
-      <div class="info-section__column">
-        <h2>${about.creditsHeading}</h2>
-        <p>${about.creditsCopy}</p>
-        <h2>${about.learnMoreHeading}</h2>
-        <ul class="info-section__links">
-          ${about.learnMoreLinks.map((link) => (link.url
-            ? `<li><a href="${link.url}" target="_blank" rel="noreferrer">${link.label}</a></li>`
-            : `<li>${link.label}</li>`)).join("")}
-        </ul>
-        <div class="info-section__legal">
-          ${about.legalLinks.map((link) => `<a href="${link.url || "#"}">${link.label}</a>`).join("")}
-        </div>
-      </div>
-    </div>
-    <p class="info-section__watermark" aria-hidden="true">Fragmented Reality</p>
-  `;
-  return section;
-}
-// Create the numbered "References" screen, reached via the side navigation.
-function createReferences() {
-  const section = document.createElement("section");
-  section.id = "references";
-  section.className = "story-section info-section";
-  section.dataset.theme = "light";
-  section.innerHTML = `
-    <h2>${references.heading}</h2>
-    <ol class="info-section__list">
-      ${references.items.map((item) => `<li>${item}</li>`).join("")}
-    </ol>
-  `;
-  return section;
-}
-// Create the unnumbered "Sources" screen, reached via the side navigation.
-function createSources() {
-  const section = document.createElement("section");
-  section.id = "sources";
-  section.className = "story-section info-section";
-  section.dataset.theme = "light";
-  section.innerHTML = `
-    <h2>${sources.heading}</h2>
-    <div class="info-section__list info-section__list--unnumbered">
-      ${sources.items.map((item) => `<p>${item}</p>`).join("")}
-    </div>
-  `;
-  return section;
-}
-// Return every page section in its final document order.
+// Return every page section in its final document order. About, References,
+// and Sources are not part of this scrolling flow - see info-pages.js.
 export function createSections() {
   return [
     createIntro(),
@@ -452,9 +395,6 @@ export function createSections() {
     ...createStorySections(),
     createMap(),
     createExploreData(),
-    createEndSequence(),
-    createAbout(),
-    createReferences(),
-    createSources()
+    createEndSequence()
   ];
 }

@@ -1,5 +1,6 @@
 import { createMainNavigation, createSideNavigation } from "./navigation.js";
 import { createSections } from "./sections.js";
+import { createInfoOverlay, setupInfoPages } from "./info-pages.js";
 import {
   observeSections,
   refreshCurrentMapStep,
@@ -18,8 +19,12 @@ const main = document.createElement("main");
 main.id = "main-content";
 main.append(...createSections());
 
-shell.append(createMainNavigation(), createSideNavigation(), main);
+const infoOverlay = createInfoOverlay();
+
+shell.append(createMainNavigation(), createSideNavigation(infoOverlay), main, infoOverlay);
 app.append(shell);
+
+setupInfoPages(infoOverlay);
 
 document.querySelectorAll("video").forEach((video) => {
   video.muted = false;
