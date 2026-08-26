@@ -1,5 +1,4 @@
 import scrollama from "../../vendor/scrollama/index.js";
-import { stories } from "./content.js";
 import { clamp, lerp } from "./utils.js";
 
 let updatePseudorelief = () => {};
@@ -180,6 +179,12 @@ export function observeSections(shell2) {
       link.classList.toggle("is-active", isActive);
       link.setAttribute("aria-current", isActive ? "location" : "false");
     });
+    // Static, never-changing section (unlike the map chapter's "route" /
+    // "fragmentation", which flip via applyMapStep) - safe to keep the URL
+    // in sync with it here, whether the user arrived by scrolling or a click.
+    if (section.id === "explore-data" && location.hash !== "#explore-data") {
+      history.replaceState(null, "", "#explore-data");
+    }
   };
 
   if (typeof scrollama === "function") {
@@ -298,16 +303,10 @@ function updateStories() {
     card.style.setProperty("--story-copy-offset", "0px");
     card.style.setProperty("--facts-reveal", Math.min(factsIn, factsOut).toFixed(3));
   });
+  const media = journey.querySelector(".story-chapter-section__media img");
   const mediaReveal = clamp(progress / (storySpan * 0.5));
   const outroReveal = clamp((progress - storyRange) / 0.1);
-  const visibleStoryIndex = activeStoryIndex >= 0 ? activeStoryIndex : 0;
-  const storyHasAnimation = hasStoryAnimation(visibleStoryIndex);
-  journey.querySelectorAll("[data-story-media]").forEach((media) => {
-    const isActive = Number(media.dataset.storyMedia) === visibleStoryIndex;
-    media.style.opacity = isActive ? (mediaReveal * (1 - outroReveal)).toFixed(3) : "0";
-  });
-  const sharedAnimation = journey.querySelector("[data-story-shared-animation]");
-  if (sharedAnimation) sharedAnimation.style.opacity = storyHasAnimation ? (mediaReveal * (1 - outroReveal)).toFixed(3) : "0";
+  if (media) media.style.opacity = (mediaReveal * (1 - outroReveal)).toFixed(3);
   const storyOutroImage = document.querySelector(".story-outro__image");
   const storyOutroText = document.querySelector(".story-outro__text");
   const storyOutroArrow = document.querySelector(".story-outro__arrow");
@@ -528,15 +527,10 @@ function applyMapStep(stepIndex, stepProgress = 1) {
         height
       };
     };
-    const closeFrame = frameForScale(0.52);
+    const closeFrame = frameForScale(0.38);
     const wideFrame = frameForScale(0.82);
     const isBarrierTransition = stepIndex <= 0;
     const barrierZoomOut = stepIndex < -1 ? 0 : stepIndex === -1 ? arrival : 1;
-    // Keep the breakdown readable for the whole barrier zoom-out; it exits
-    // only with the following transition to the all-forests map.
-    const barrierSummaryReveal = barrierReveal;
-    forestMap.style.setProperty("--barrier-summary-reveal", barrierSummaryReveal.toFixed(3));
-    forestMap.classList.toggle("has-barrier-summary", barrierSummaryReveal > 0.01);
     const forestTransition = stepIndex < 0 ? 0 : stepIndex === 0 ? arrival : 1;
     const barrierFrame = {
       x: lerp(closeFrame.x, wideFrame.x, barrierZoomOut),
@@ -565,6 +559,14 @@ function applyMapStep(stepIndex, stepProgress = 1) {
       : lerp(1000, forestDetailHeight, zoomReveal);
     forestMapSvg.setAttribute("viewBox", `${viewX} ${viewY} ${viewWidth} ${viewHeight}`);
   }
+  // The map visually blends into ranking-style mode from step 8 onward (see
+  // "is-ranking" below), but the copy keeps narrating "Fragmentation" content
+  // (mesh size, Bayern/Thueringen walking-distance facts) all the way through
+  // the last map step - so this element's own nav label always stays
+  // "fragmentation" (or "route" before the chapter starts). The real
+  // "Explore the Data" chapter is a separate #explore-data section right
+  // after this one, and switches the nav itself via observeSections() once
+  // the user actually scrolls into it.
   const activeMapSection = stepIndex < 0 ? "route" : "fragmentation";
   section.dataset.section = activeMapSection;
   document.querySelectorAll("[data-section-link]").forEach((link) => {
@@ -656,6 +658,22 @@ export function setupScrollScenes() {
     });
   };
 
+  let pendingMapStep = null;
+  let mapStepScheduled = false;
+  // Same one-update-per-frame guard as requestUpdate above, but for
+  // applyMapStep specifically: Scrollama's progress-tracking observer can
+  // call onStepEnter/onStepProgress more than once per frame, and each call
+  // is expensive (layout reads/writes, 3D re-render) - coalesce to the latest.
+  const requestMapStepUpdate = (stepIndex, stepProgress) => {
+    pendingMapStep = [stepIndex, stepProgress];
+    if (mapStepScheduled) return;
+    mapStepScheduled = true;
+    requestAnimationFrame(() => {
+      mapStepScheduled = false;
+      applyMapStep(...pendingMapStep);
+    });
+  };
+
   if (typeof scrollama === "function") {
     const isScrollamaDebug = new URLSearchParams(window.location.search).has("scrollama-debug");
     // Each story owns one explicit Scrollama range. onStepEnter fires in both
@@ -680,11 +698,10 @@ export function setupScrollScenes() {
         order: true
       })
       .onStepEnter(({ element, progress }) => {
-        applyMapStep(Number(element.dataset.mapStep), progress ?? 0);
+        requestMapStepUpdate(Number(element.dataset.mapStep), progress ?? 0);
       })
       .onStepProgress(({ element, progress }) => {
-        const stepIndex = Number(element.dataset.mapStep);
-        applyMapStep(stepIndex, progress);
+        requestMapStepUpdate(Number(element.dataset.mapStep), progress);
       });
     // This instance watches whole chapters and refreshes general animations.
     const sceneScroller = scrollama();
@@ -700,19 +717,16 @@ export function setupScrollScenes() {
       .onStepProgress(requestUpdate)
       .onStepExit(requestUpdate);
     window.addEventListener("resize", () => {
-      storyScroller.resize();
       mapScroller.resize();
       sceneScroller.resize();
       requestUpdate();
     });
     window.__mapScroller = mapScroller;
-    window.__storyScroller = storyScroller;
     window.__sceneScroller = sceneScroller;
   } else {
     window.addEventListener("scroll", requestUpdate, { passive: true });
     window.addEventListener("resize", requestUpdate);
   }
-  window.addEventListener("soundstatechange", (event) => syncStorySound(event.detail));
   update();
 }
 

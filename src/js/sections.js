@@ -1,4 +1,4 @@
-import { sections, stories } from "./content.js";
+import { sections, stories, exploreData } from "./content.js";
 import { createScrollArrow } from "./navigation.js";
 
 function baseSection(index) {
@@ -91,8 +91,7 @@ function createStorySections() {
     <div class="story-chapter-section__stage">
       <div class="story-chapter-section__panel">${cards}</div>
       <div class="story-chapter-section__media" aria-hidden="true">
-        ${media}
-        ${sharedAnimationSrc ? `<video class="story-chapter-section__visual story-chapter-section__shared-animation" data-story-shared-animation src="${sharedAnimationSrc}" poster="${stories[0]?.image ?? ""}" muted playsinline preload="auto" fetchpriority="high" aria-label="Story animation"></video>` : ""}
+        <img src="/media/story_placeholder.webp" alt="" />
       </div>
       <div class="story-outro">
         <picture>
@@ -110,7 +109,6 @@ function createStorySections() {
         </a>
       </div>
     </div>
-    ${triggers}
   `;
   return [section];
 }
@@ -186,7 +184,6 @@ function createMap() {
           <defs class="forest-map__mesh-defs"></defs>
           <g class="forest-map__layer forest-map__layer--barriers"></g>
           <g class="forest-map__layer forest-map__layer--all"></g>
-          <g class="forest-map__layer forest-map__layer--route"></g>
           <g class="forest-map__layer forest-map__layer--large"></g>
           <g class="forest-map__layer forest-map__layer--zoom-detail"></g>
           <g class="forest-map__layer forest-map__layer--mesh"></g>
@@ -194,30 +191,14 @@ function createMap() {
           <g class="forest-map__layer forest-map__layer--mesh-labels"></g>
           <g class="forest-map__layer forest-map__layer--ranking"></g>
         </svg>
-        <div class="forest-map__barrier-summary" aria-label="Barriers encountered along the route">
-          <div class="forest-map__barrier-category forest-map__barrier-category--streets" style="--barrier-share: 56" tabindex="0" title="79 streets (56%)">
-            <strong>79 streets</strong>
-            <span>56%</span>
-          </div>
-          <div class="forest-map__barrier-category forest-map__barrier-category--settlements" style="--barrier-share: 34" tabindex="0" title="48 settlements (34%)">
-            <strong>48 settlements</strong>
-            <span>34%</span>
-          </div>
-          <div class="forest-map__barrier-category forest-map__barrier-category--railways" style="--barrier-share: 9" tabindex="0" title="13 railways (9%)">
-            <strong>13 railways</strong>
-            <span>9%</span>
-          </div>
-          <div class="forest-map__barrier-category forest-map__barrier-category--airports" style="--barrier-share: 1" tabindex="0" title="2 airports (1%)">
-            <strong>2 airports</strong>
-            <span>1%</span>
-          </div>
-        </div>
         <div class="forest-map__mesh-labels-html" aria-hidden="true"></div>
         <div class="forest-map__ranking-labels-html" aria-hidden="true"></div>
         <div class="forest-map__mesh-legend" aria-label="Mesh-size scale from highest to lowest">
-          <div class="forest-map__mesh-legend-title">
-            <img src="/media/meshsize-purple.svg" alt="" />
-            <span>Mesh size</span>
+          <div class="forest-map__mesh-legend-row">
+            <div class="forest-map__mesh-legend-title">
+              <img src="/media/meshsize-purple.svg" alt="" />
+              <span>Mesh size</span>
+            </div>
           </div>
           <div class="forest-map__mesh-legend-scale">
             <span>Highest mesh size</span>
@@ -286,6 +267,108 @@ function createExploreData() {
   section.className = "story-section explore-data-section";
   section.dataset.theme = "light";
   section.dataset.section = "explore-data";
+  section.innerHTML = `
+    <div class="explore-data" aria-live="polite">
+      <div class="explore-data__stage">
+        <div class="explore-data__copy">
+          <div class="explore-data__title-row">
+            <h2>
+              <span class="explore-data__marks" aria-hidden="true">
+                <img class="explore-data__mark" src="/media/explore.svg" alt="" />
+              </span><span class="explore-data__title-text">${exploreData.detail.heading}</span>
+            </h2>
+          </div>
+          <p class="explore-data__intro-copy">${exploreData.detail.introCopy}</p>
+          <p class="explore-data__overview-caption"></p>
+          <div class="explore-data__overview">
+            <div class="explore-data__overview-zoom">
+              <img class="explore-data__overview-image" alt="" />
+              <div class="explore-data__overview-square" aria-hidden="true"></div>
+            </div>
+          </div>
+          <div class="explore-data__overview-nav">
+            <button type="button" class="explore-data__overview-prev" aria-label="${exploreData.detail.overviewPrevLabel}"><img src="/media/arrow_left.svg" alt="" /></button>
+            <button type="button" class="explore-data__overview-next" aria-label="${exploreData.detail.overviewNextLabel}"><img src="/media/arrow_right.svg" alt="" /></button>
+          </div>
+          <a class="explore-data__continue" href="#conclusion" aria-label="Finish the story">
+            <span>${exploreData.detail.continueLabel}</span>
+            <span aria-hidden="true">&darr;</span>
+          </a>
+        </div>
+        <div class="explore-data__media">
+          <div class="explore-data__header">
+            <button type="button" class="explore-data__header-back">
+              <span class="explore-data__header-back-arrow" aria-hidden="true">&larr;</span>
+              <span>${exploreData.detail.backLabel}</span>
+            </button>
+            <div class="explore-data__header-state">
+              <span class="explore-data__state-name">—</span>
+            </div>
+          </div>
+          <div class="explore-data__cards">
+            <div class="explore-data__card" data-card="mesh_size">
+              <span class="explore-data__card-label">${exploreData.detail.cardLabels.mesh_size}</span>
+              <span class="explore-data__card-value">—</span>
+            </div>
+            <div class="explore-data__card" data-card="walking_time">
+              <span class="explore-data__card-label">${exploreData.detail.cardLabels.walking_time}<span class="explore-data__info-icon" tabindex="0" role="button" aria-label="${exploreData.detail.walkingTimeTooltip}">
+                  <svg class="explore-data__info-icon-svg" viewBox="0 0 16 16" aria-hidden="true">
+                    <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.3" />
+                    <circle cx="8" cy="4.8" r="0.9" fill="currentColor" />
+                    <rect x="7.25" y="7" width="1.5" height="5" rx="0.75" fill="currentColor" />
+                  </svg>
+                  <span class="explore-data__tooltip" role="tooltip">${exploreData.detail.walkingTimeTooltip}</span>
+                </span></span>
+              <span class="explore-data__card-value">—</span>
+            </div>
+            <div class="explore-data__card" data-card="pct_unfragmented">
+              <span class="explore-data__card-label">${exploreData.detail.cardLabels.pct_unfragmented}</span>
+              <span class="explore-data__card-value">—</span>
+            </div>
+            <div class="explore-data__card explore-data__card--highlight" data-card="unfragmented_km2">
+              <span class="explore-data__card-label">${exploreData.detail.cardLabels.unfragmented_km2}</span>
+              <span class="explore-data__card-value">—</span>
+            </div>
+          </div>
+          <div class="explore-data__ranking-scale">
+            <span>${exploreData.ranking.scaleHigh}</span>
+            <span class="explore-data__ranking-scale-arrow" aria-hidden="true">→</span>
+            <span>${exploreData.ranking.scaleLow}</span>
+          </div>
+          <div class="explore-data__legend">
+            <span class="explore-data__legend-item"><i class="explore-data__legend-swatch explore-data__legend-swatch--mesh"></i>${exploreData.detail.legend.mesh}</span>
+            <span class="explore-data__legend-item"><i class="explore-data__legend-swatch explore-data__legend-swatch--patch"></i>${exploreData.detail.legend.patch}</span>
+          </div>
+          <div class="explore-data__map-wrap">
+            <svg class="explore-data__map-svg" viewBox="0 0 760 480" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="explore-data-map-title">
+              <title id="explore-data-map-title">Mesh size and large forest patches</title>
+              <defs class="explore-data__mesh-defs"></defs>
+              <g class="explore-data__layer explore-data__layer--boundary"></g>
+              <g class="explore-data__layer explore-data__layer--patches"></g>
+            </svg>
+            <p class="explore-data__status">${exploreData.detail.loadingStatus}</p>
+          </div>
+          <div class="explore-data__state-nav">
+            <button type="button" class="explore-data__state-prev" aria-label="${exploreData.detail.statePrevLabel}"><img src="/media/arrow_left.svg" alt="" /></button>
+            <button type="button" class="explore-data__state-next" aria-label="${exploreData.detail.stateNextLabel}"><img src="/media/arrow_right.svg" alt="" /></button>
+          </div>
+          <div class="explore-data__ranking-wrap">
+            <div class="explore-data__ranking-scroll" tabindex="0" role="region" aria-label="All German states ranked by mesh size, scroll to see more">
+              <svg class="explore-data__ranking-svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="explore-data-ranking-title">
+                <title id="explore-data-ranking-title">All German states ranked by mesh size</title>
+                <defs class="explore-data__ranking-mesh-defs"></defs>
+                <g class="explore-data__ranking-states"></g>
+              </svg>
+            </div>
+            <div class="explore-data__ranking-nav">
+              <button type="button" class="explore-data__ranking-prev" aria-label="${exploreData.ranking.prevLabel}"><img src="/media/arrow_left.svg" alt="" /></button>
+              <button type="button" class="explore-data__ranking-next" aria-label="${exploreData.ranking.nextLabel}"><img src="/media/arrow_right.svg" alt="" /></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
   return section;
 }
 // Create the final eight-image sequence and its four centered text passages.
@@ -320,7 +403,15 @@ function createEndSequence() {
   `;
   return section;
 }
-// Return every page section in its final document order.
+// Return every page section in its final document order. About, References,
+// and Sources are not part of this scrolling flow - see info-pages.js.
 export function createSections() {
-  return [createIntro(), createImageSequence(), ...createStorySections(), createMap(), createExploreData(), createEndSequence()];
+  return [
+    createIntro(),
+    createImageSequence(),
+    ...createStorySections(),
+    createMap(),
+    createExploreData(),
+    createEndSequence()
+  ];
 }

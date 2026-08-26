@@ -18,7 +18,7 @@
   --color-map-outline: #605170;
   --color-side-nav-text: #d7d2e7;
   --color-side-nav-hover: #fefefe;
-  --color-nav-chosen: #e4e0f0;
+  --color-nav-chosen: #c4b2fb;
   --color-nav-surface: #2a2832;
   --color-grey-primary: #3f3f3f;
   --color-grey-secondary: #afafaf;
@@ -34,6 +34,12 @@
   --color-data-annotation: #605170;
   --color-forest: #63973e;
   --color-calibration-surface: rgb(248 248 248 / 94%);
+
+  /* Explore-the-data cards stay dark regardless of section theme */
+  --color-data-card-surface: #1e1b28;
+  --color-data-card-text: #fefefe;
+  --color-data-card-highlight-surface: #dcefce;
+  --color-data-card-highlight-text: #23431f;
 
   /* Desktop layout */
   --side-nav-width: 64px;
