@@ -296,5 +296,6 @@ export async function setupForestMap(onReady) {
   } catch (error) {
     console.error("Unable to render the forest map", error);
     if (status) status.textContent = "Forest map could not be loaded.";
+    throw error;
   }
 }

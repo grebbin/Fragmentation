@@ -5,6 +5,7 @@ import { clamp, lerp } from "./utils.js";
 let updatePseudorelief = () => {};
 let activeStoryIndex = -1;
 let storyAudioFadeFrame = null;
+let storyAudioIsSuppressedForNavigation = false;
 
 function isSoundEnabled() {
   return document.querySelector(".sound-control__button")?.classList.contains("is-enabled") ?? false;
@@ -88,7 +89,7 @@ function activateStory(index, { restartAnimation = true } = {}) {
     item.classList.toggle("is-active", isActive);
     const audio = item.querySelector("audio[data-story-audio]");
     if (audio) {
-      if (isActive && hasStoryAudio(index)) {
+      if (isActive && hasStoryAudio(index) && !storyAudioIsSuppressedForNavigation) {
         playStoryAudio(audio, stories[index].audio, { restart: restartAnimation });
       } else if (!isActive) {
         stopStoryAudio(audio);
@@ -287,7 +288,10 @@ function updateStories() {
   if (!journey) return;
   const journeyRect = journey.getBoundingClientRect();
   const journeyIsOutsideViewport = journeyRect.bottom <= 0 || journeyRect.top >= window.innerHeight;
-  if (journeyIsOutsideViewport && activeStoryIndex >= 0) fadeOutStoryAudio();
+  if (journeyIsOutsideViewport) {
+    if (activeStoryIndex >= 0) fadeOutStoryAudio();
+    storyAudioIsSuppressedForNavigation = false;
+  }
   const cards = journey.querySelectorAll("[data-story-card]");
   // Reserve only a short scroll distance for the completed-journey outro.
   const storyRange = 0.88;
@@ -649,6 +653,13 @@ export function setupScrollScenes() {
     syncStorySound(event.detail ?? {});
   });
   setupIntroVideo();
+  document.querySelectorAll('.main-nav__item[href^="#"]').forEach((link) => {
+    link.addEventListener("click", () => {
+      if (activeStoryIndex < 0 || link.getAttribute("href") === "#perspective-shift") return;
+      storyAudioIsSuppressedForNavigation = true;
+      fadeOutStoryAudio();
+    });
+  });
   document.querySelectorAll(".map-section__mark").forEach((image) => {
     image.addEventListener("error", () => image.classList.add("has-error"));
   });
