@@ -2,7 +2,7 @@ import { geoIdentity, geoPath, json, select, zoom, zoomIdentity } from "d3";
 import { feature } from "topojson-client";
 import { exploreData as exploreDataContent } from "./content.js";
 
-const GERMANY_TOPOJSON_URL = "/data/wald_expo/deut.topojson";
+const GERMANY_TOPOJSON_URL = "data/wald_expo/deut.topojson";
 const DEFAULT_STATE_AGS = "09";
 const MAP_VIEW_SIZE = 760;
 // Bayern renders at 60% of its original size (712px inner side at margin 24
@@ -13,7 +13,7 @@ const MAP_VIEW_SIZE = 760;
 const MAP_INNER_SIDE = 712 * 0.6;
 const MAP_MARGIN_TOP = 20;
 const MAP_MARGIN_X = (MAP_VIEW_SIZE - MAP_INNER_SIDE) / 2;
-const MESH_CSV_URL = "/data/U06KG__2024.csv";
+const MESH_CSV_URL = "data/U06KG__2024.csv";
 // Only used as a walking-time fallback for states missing state_stats.json.
 const WALK_SPEED_KMH = 5;
 // Height of the "all states" ranking canvas; width is derived from the
@@ -37,16 +37,12 @@ const DETAIL_VIEW_SELECTOR = ".explore-data__header, .explore-data__cards, .expl
 const RANKING_VIEW_SELECTOR = ".explore-data__ranking-scale, .explore-data__ranking-wrap";
 
 // Every state's assets live under its own lower-cased folder name, e.g.
-// "Nordrhein-Westfalen" -> /data/satellite/nordrhein-westfalen/. The state
-// names here come from the CSV as precomposed Unicode (NFC: "ü" is one
-// codepoint), but the folders on disk were created on macOS, which stores
-// filenames decomposed (NFD: "u" + a combining diaeresis) - byte-identical
-// on screen but different strings, so an un-normalized fetch 404s for any
-// state with an accented letter (Baden-Württemberg, Thüringen). Normalizing
-// to NFD here matches what's actually on disk (and in git, since it commits
-// whatever bytes are there).
+// "Nordrhein-Westfalen" -> /data/satellite/nordrhein-westfalen/. The folder
+// names committed with this project use precomposed Unicode (NFC), matching
+// the names from the CSV. Using NFD would produce a different URL for states
+// with umlauts (Baden-Württemberg, Thüringen) and make their data 404.
 function dataRootFor(stateName) {
-  return `/data/satellite/${stateName.toLowerCase().normalize("NFD")}`;
+  return `data/satellite/${stateName.toLowerCase().normalize("NFC")}`;
 }
 
 // Fits one state's boundary to the detail map's display box. Used both to
@@ -752,12 +748,16 @@ function renderRanking(svg, germany, meshValues, forestPatchesByState, onSelectS
     return { stateCode, stateName, valueKm2, stateCollection, width: x1 - x0, height: y1 - y0, x0, y0 };
   }).sort((a, b) => b.valueKm2 - a.valueKm2);
 
-  const rowY = RANKING_VIEW_HEIGHT / 2 - Math.max(...rankedStates.map((item) => item.height)) / 2;
-  const labelY = rowY + Math.max(...rankedStates.map((item) => item.height)) + 40;
+  const tallestState = Math.max(...rankedStates.map((item) => item.height));
+  const rowY = RANKING_VIEW_HEIGHT / 2 - tallestState / 2;
+  const rowBottom = rowY + tallestState;
+  const labelY = rowBottom + 40;
   let cursor = 0;
   const rankingItems = rankedStates.map((item) => {
     const dx = cursor - item.x0;
-    const dy = rowY - item.y0;
+    // Align every state along the same baseline, bringing smaller states
+    // visually closer to their labels below.
+    const dy = rowBottom - (item.y0 + item.height);
     const targetX = cursor + item.width / 2;
     cursor += item.width + RANKING_GAP;
     return { ...item, dx, dy, targetX };
@@ -771,30 +771,32 @@ function renderRanking(svg, germany, meshValues, forestPatchesByState, onSelectS
     .attr("class", "explore-data__ranking-item")
     .attr("data-state-code", ({ stateCode }) => stateCode);
 
-  stateGroups.append("path")
+  // Keep each boundary and its forest patches in one geometry group. This
+  // ensures hover scaling treats the forest as part of the state, rather than
+  // transforming every patch around its own centre.
+  const geometryGroups = stateGroups.append("g")
+    .attr("class", "explore-data__ranking-geometry")
+    .style("--ranking-dx", ({ dx }) => `${dx}px`)
+    .style("--ranking-dy", ({ dy }) => `${dy}px`);
+
+  geometryGroups.append("path")
     .attr("class", "explore-data__ranking-state")
     .attr("data-state-code", ({ stateCode }) => stateCode)
     .attr("d", ({ stateCollection }) => path(stateCollection))
     .attr("fill", ({ stateCode }) => `url(#explore-data-ranking-mesh-${stateCode})`)
-    .style("--ranking-dx", ({ dx }) => `${dx}px`)
-    .style("--ranking-dy", ({ dy }) => `${dy}px`)
     .attr("tabindex", 0)
     .attr("role", "button")
     .attr("aria-label", ({ stateName }) => `Show ${stateName}`);
 
-  // Forest patches sit on top of the mesh-filled boundary, sharing its
-  // translate via the same --ranking-dx/--ranking-dy custom properties.
-  // pointer-events: none (see CSS) keeps clicks/hover landing on the
-  // boundary path underneath rather than getting swallowed here.
-  stateGroups.each(function (d) {
+  // Forest patches sit on top of the mesh-filled boundary in the same
+  // geometry group, so they share both its placement and hover scale.
+  geometryGroups.each(function (d) {
     const patches = forestPatchesByState.get(d.stateCode)?.features ?? [];
     select(this).selectAll(".explore-data__ranking-patch")
       .data(patches)
       .join("path")
       .attr("class", "explore-data__ranking-patch")
-      .attr("d", path)
-      .style("--ranking-dx", `${d.dx}px`)
-      .style("--ranking-dy", `${d.dy}px`);
+      .attr("d", path);
   });
 
   stateGroups.append("line")

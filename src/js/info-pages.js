@@ -23,7 +23,7 @@ function aboutPanelHTML() {
         </div>
       </div>
     </div>
-    <img class="info-section__watermark" src="/media/Fragmented%20Reality_end.svg" alt="" aria-hidden="true" />
+    <img class="info-section__watermark" src="media/Fragmented%20Reality_end.svg" alt="" aria-hidden="true" />
   `;
 }
 

@@ -26,7 +26,7 @@ app.append(shell);
 
 setupInfoPages(infoOverlay);
 
-document.querySelectorAll("video").forEach((video) => {
+document.querySelectorAll("video:not([data-story-shared-animation])").forEach((video) => {
   video.muted = false;
 });
 
@@ -34,21 +34,49 @@ observeSections(shell);
 setupScrollScenes();
 
 let visualizationsHaveLoaded = false;
+let visualizationsAreLoading = false;
+let forestMapHasLoaded = false;
+let pseudoreliefHasLoaded = false;
 const loadVisualizations = async () => {
-  if (visualizationsHaveLoaded) return;
-  visualizationsHaveLoaded = true;
-  const [{ setupForestMap }, pseudorelief] = await Promise.all([
-    import("./forest-map.js"),
-    import("./pseudorelief-model.js")
-  ]);
-  registerPseudoreliefUpdater(pseudorelief.updatePseudorelief);
-  pseudorelief.setupPseudoreliefModel();
-  setupForestMap(refreshCurrentMapStep);
-  refreshCurrentMapStep();
+  if (visualizationsHaveLoaded || visualizationsAreLoading) return;
+  visualizationsAreLoading = true;
+  try {
+    const [{ setupForestMap }, pseudorelief] = await Promise.all([
+      import("./forest-map.js"),
+      import("./pseudorelief-model.js")
+    ]);
+    if (!forestMapHasLoaded) {
+      await setupForestMap(refreshCurrentMapStep);
+      forestMapHasLoaded = true;
+    }
+    if (!pseudoreliefHasLoaded) {
+      registerPseudoreliefUpdater(pseudorelief.updatePseudorelief);
+      pseudorelief.setupPseudoreliefModel();
+      pseudoreliefHasLoaded = true;
+    }
+    refreshCurrentMapStep();
+    visualizationsHaveLoaded = forestMapHasLoaded && pseudoreliefHasLoaded;
+  } catch (error) {
+    console.error("Unable to load the route visualizations", error);
+  } finally {
+    visualizationsAreLoading = false;
+  }
 };
 
-// Begin preparing the map and model immediately so deep zoom steps are ready on arrival.
-void loadVisualizations();
+// Prepare the map and model shortly before the route section enters view.
+const routeSection = document.querySelector("#route");
+if (routeSection) {
+  const routeObserver = new IntersectionObserver(
+    (entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      void loadVisualizations().then(() => {
+        if (visualizationsHaveLoaded) routeObserver.disconnect();
+      });
+    },
+    { rootMargin: "100% 0px" }
+  );
+  routeObserver.observe(routeSection);
+}
 
 let exploreDataHasLoaded = false;
 const exploreDataSection = document.querySelector("#explore-data");

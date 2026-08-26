@@ -1,7 +1,155 @@
 import scrollama from "../../vendor/scrollama/index.js";
+import { stories } from "./content.js";
 import { clamp, lerp } from "./utils.js";
 
 let updatePseudorelief = () => {};
+let activeStoryIndex = -1;
+let storyAudioFadeFrame = null;
+let storyAudioIsSuppressedForNavigation = false;
+
+function isSoundEnabled() {
+  return document.querySelector(".sound-control__button")?.classList.contains("is-enabled") ?? false;
+}
+
+function hasStoryAnimation(index) {
+  const animation = stories[index]?.animation;
+  return Boolean(
+    animation?.src
+    && Number.isFinite(animation.start)
+    && Number.isFinite(animation.end)
+    && animation.end > animation.start
+  );
+}
+
+function hasStoryAudio(index) {
+  const audio = stories[index]?.audio;
+  return Boolean(
+    audio?.src
+    && Number.isFinite(audio.start)
+    && Number.isFinite(audio.end)
+    && audio.end > audio.start
+    && (audio.loopStart == null || (Number.isFinite(audio.loopStart) && audio.loopStart >= audio.start && audio.loopStart < audio.end))
+  );
+}
+
+function stopStoryAudio(audio) {
+  audio.pause();
+  audio.currentTime = 0;
+  audio.volume = 1;
+  delete audio.dataset.storyAudioPhase;
+}
+
+function cancelStoryAudioFade() {
+  if (storyAudioFadeFrame != null) cancelAnimationFrame(storyAudioFadeFrame);
+  storyAudioFadeFrame = null;
+}
+
+function fadeOutStoryAudio() {
+  if (storyAudioFadeFrame != null) return;
+  cancelStoryAudioFade();
+  const activeAudio = document.querySelector(`[data-story-audio="${activeStoryIndex}"]`);
+  if (!activeAudio || activeAudio.paused) return;
+  const startedAt = performance.now();
+  const duration = 450;
+  const fade = (now) => {
+    const progress = Math.min((now - startedAt) / duration, 1);
+    activeAudio.volume = 1 - progress;
+    if (progress < 1) {
+      storyAudioFadeFrame = requestAnimationFrame(fade);
+      return;
+    }
+    stopStoryAudio(activeAudio);
+    activeStoryIndex = -1;
+    storyAudioFadeFrame = null;
+  };
+  storyAudioFadeFrame = requestAnimationFrame(fade);
+}
+
+function playStoryAudio(audio, timing, { restart = true } = {}) {
+  cancelStoryAudioFade();
+  audio.volume = 1;
+  if (!isSoundEnabled()) {
+    audio.pause();
+    return;
+  }
+  if (restart || !audio.dataset.storyAudioPhase) {
+    audio.dataset.storyAudioPhase = "full";
+    audio.currentTime = timing.start;
+  }
+  void audio.play().catch(() => void 0);
+}
+
+// Start the visual and sounds belonging to the story Scrollama has reached.
+function activateStory(index, { restartAnimation = true } = {}) {
+  const journey = document.querySelector(".story-chapter-section--journey");
+  if (!journey || !Number.isFinite(index)) return;
+  activeStoryIndex = index;
+  journey.querySelectorAll("[data-story-media]").forEach((item) => {
+    const isActive = Number(item.dataset.storyMedia) === index;
+    item.classList.toggle("is-active", isActive);
+    const audio = item.querySelector("audio[data-story-audio]");
+    if (audio) {
+      if (isActive && hasStoryAudio(index) && !storyAudioIsSuppressedForNavigation) {
+        playStoryAudio(audio, stories[index].audio, { restart: restartAnimation });
+      } else if (!isActive) {
+        stopStoryAudio(audio);
+      }
+    }
+  });
+  const animationWindow = stories[index]?.animation;
+  const sharedAnimation = journey.querySelector("[data-story-shared-animation]");
+  const hasAnimation = Boolean(sharedAnimation && hasStoryAnimation(index));
+  if (sharedAnimation) {
+    if (hasAnimation) {
+      sharedAnimation.muted = true;
+      sharedAnimation.dataset.storyAnimationEnd = String(animationWindow.end);
+      if (restartAnimation) sharedAnimation.currentTime = animationWindow.start;
+      void sharedAnimation.play().catch(() => void 0);
+    } else {
+      sharedAnimation.pause();
+      delete sharedAnimation.dataset.storyAnimationEnd;
+    }
+  }
+  updateStories();
+}
+
+function syncStorySound({ enabled }) {
+  if (activeStoryIndex >= 0) activateStory(activeStoryIndex, { restartAnimation: false });
+  if (!enabled) document.querySelectorAll("audio[data-story-audio]").forEach((audio) => audio.pause());
+}
+
+function setupStoryAudio() {
+  document.querySelectorAll("audio[data-story-audio]").forEach((audio) => {
+    audio.addEventListener("timeupdate", () => {
+      const index = Number(audio.dataset.storyAudio);
+      const timing = stories[index]?.audio;
+      if (!timing || activeStoryIndex !== index || !isSoundEnabled()) return;
+      const loopStart = timing.loopStart ?? timing.start;
+      if (audio.dataset.storyAudioPhase === "full" && audio.currentTime >= timing.end) {
+        audio.dataset.storyAudioPhase = "loop";
+        audio.currentTime = loopStart;
+        void audio.play().catch(() => void 0);
+      } else if (audio.dataset.storyAudioPhase === "loop" && audio.currentTime >= timing.end) {
+        audio.currentTime = loopStart;
+        void audio.play().catch(() => void 0);
+      }
+    });
+  });
+}
+
+function setupSharedStoryAnimation() {
+  const animation = document.querySelector("[data-story-shared-animation]");
+  if (!animation) return;
+  animation.preload = "auto";
+  animation.load();
+  animation.addEventListener("timeupdate", () => {
+    const end = Number(animation.dataset.storyAnimationEnd);
+    if (Number.isFinite(end) && animation.currentTime >= end) {
+      animation.currentTime = end;
+      animation.pause();
+    }
+  });
+}
 
 export function registerPseudoreliefUpdater(updater) {
   updatePseudorelief = updater;
@@ -138,13 +286,26 @@ function updateImageSequence() {
 function updateStories() {
   const journey = document.querySelector(".story-chapter-section--journey");
   if (!journey) return;
+  const journeyRect = journey.getBoundingClientRect();
+  const journeyIsOutsideViewport = journeyRect.bottom <= 0 || journeyRect.top >= window.innerHeight;
+  if (journeyIsOutsideViewport) {
+    if (activeStoryIndex >= 0) fadeOutStoryAudio();
+    storyAudioIsSuppressedForNavigation = false;
+  }
   const cards = journey.querySelectorAll("[data-story-card]");
-  const storyRange = 0.72;
+  // Reserve only a short scroll distance for the completed-journey outro.
+  const storyRange = 0.88;
   const storySpan = storyRange / cards.length;
   const scrollProgress = sceneProgress(journey);
   const entryReveal = clamp((sectionEntryProgress(journey) - 0.15) / 0.6);
-  const entryAdvance = storySpan * 0.5;
+  // Let the first card settle roughly a third of a viewport below the top
+  // while the chapter is entered, rather than snapping straight into place.
+  const entryAdvance = storySpan * 0.35;
   const progress = entryReveal * entryAdvance + scrollProgress * (1 - entryAdvance);
+  // Keep the final image-to-outro hand-off concise rather than spreading it
+  // across a long final stretch of the chapter.
+  const outroReveal = clamp((progress - storyRange) / 0.045);
+  if (outroReveal > 0.02 && activeStoryIndex >= 0) fadeOutStoryAudio();
   cards.forEach((card, index) => {
     const travel = clamp((progress - index * storySpan) / storySpan);
     const factsIn = clamp((travel - 0.3) / 0.2);
@@ -154,18 +315,32 @@ function updateStories() {
     card.style.setProperty("--story-copy-offset", "0px");
     card.style.setProperty("--facts-reveal", Math.min(factsIn, factsOut).toFixed(3));
   });
-  const media = journey.querySelector(".story-chapter-section__media img");
   const mediaReveal = clamp(progress / (storySpan * 0.5));
-  const outroReveal = clamp((progress - storyRange) / 0.1);
-  if (media) media.style.opacity = (mediaReveal * (1 - outroReveal)).toFixed(3);
+  const mediaOpacity = (mediaReveal * (1 - outroReveal)).toFixed(3);
+  const sharedAnimation = journey.querySelector("[data-story-shared-animation]");
+  const activeStoryHasAnimation = hasStoryAnimation(activeStoryIndex);
+
+  // The still image is the fallback for stories without an animation. The
+  // shared video sits above it and receives the identical reveal/outro fade.
+  journey.querySelectorAll("[data-story-media]").forEach((item) => {
+    const isActiveFallback = Number(item.dataset.storyMedia) === activeStoryIndex
+      && !activeStoryHasAnimation;
+    item.style.opacity = isActiveFallback ? mediaOpacity : "0";
+  });
+  if (sharedAnimation) {
+    sharedAnimation.style.opacity = activeStoryHasAnimation ? mediaOpacity : "0";
+  }
   const storyOutroImage = document.querySelector(".story-outro__image");
   const storyOutroText = document.querySelector(".story-outro__text");
   const storyOutroArrow = document.querySelector(".story-outro__arrow");
   if (storyOutroImage) storyOutroImage.style.opacity = outroReveal.toFixed(3);
   if (storyOutroText) storyOutroText.style.transform = `translateY(${(1 - outroReveal) * 100}vh)`;
-  storyOutroArrow?.classList.toggle("is-visible", progress >= 0.86);
+  storyOutroArrow?.classList.toggle("is-visible", progress >= 0.93);
 }
-let currentMapStep = 0;
+// The map assets load asynchronously. Their first refresh must use the first
+// barrier step, not the forest step that follows it, otherwise forest copy can
+// flash through before Scrollama has supplied the actual scroll position.
+let currentMapStep = -2;
 // Translate one map step into text, SVG, ranking, and 3D visual states.
 function applyMapStep(stepIndex, stepProgress = 1) {
   const section = document.querySelector(".map-section");
@@ -195,16 +370,23 @@ function applyMapStep(stepIndex, stepProgress = 1) {
   const forestMap = document.querySelector(".forest-map");
   const forestMapSvg = document.querySelector(".forest-map__svg");
   const barrierLayer = document.querySelector(".forest-map__layer--barriers");
+  const barrierBreakdown = document.querySelector(".barrier-breakdown");
   if (!section || !barrierStep || !title || !forestTitle || !intro || !detail || !pseudo || !stubRoads || !pseudoFacts || !meshStep || !meshTitle || !meshIntroCopy || !meshFactIntro || !meshAnimation || !meshFactOutro || !meshRouteCopy || !meshBayernCopy || !meshThueringenCopy || !meshDiagonalStep || !meshDiagonalIntro || !meshDiagonalAnimation || !meshDiagonalFact || !meshBayernTime || !meshThueringenTime || !forestMap || !forestMapSvg || !barrierLayer) return;
   currentMapStep = stepIndex;
   // Delay slightly, then complete the entrance within this trigger's central 58%.
   const arrival = clamp((stepProgress - 0.18) / 0.58);
+  // The first map view should be complete as the chapter is reached, instead
+  // of opening with an empty copy panel and a nearly white map.
+  const barrierEntrance = clamp((stepProgress + 0.12) / 0.24);
   // Convert a normalized vertical position into actual viewport pixels.
   const y = (position) => `${position * window.innerHeight}px`;
-  const barrierPosition = stepIndex < -2 ? 1 : stepIndex === -2 ? 1 - arrival : stepIndex === -1 ? 0 : stepIndex === 0 ? -arrival : -1;
-  const barrierReveal = stepIndex < -2 ? 0 : stepIndex === -2 ? arrival : stepIndex === -1 ? 1 : stepIndex === 0 ? 1 - arrival : 0;
+  const barrierPosition = stepIndex < -2 ? 1 : stepIndex <= -1 ? 0 : stepIndex === 0 ? -arrival : -1;
+  const barrierReveal = stepIndex < -2 ? 0 : stepIndex === -2 ? barrierEntrance : stepIndex === -1 ? 1 : stepIndex === 0 ? 1 - arrival : 0;
   const forestStageReveal = stepIndex < 0 ? 0 : stepIndex === 0 ? arrival : 1;
-  const introPosition = stepIndex === 0 ? 1 - arrival : stepIndex === 1 ? 0 : stepIndex === 2 ? -arrival : -1;
+  // Keep the forest copy below the panel until its own transition starts.
+  // Moving it from above to below between steps made it briefly travel across
+  // the view due to the CSS transform transition.
+  const introPosition = stepIndex < 0 ? 1 : stepIndex === 0 ? 1 - arrival : stepIndex === 1 ? 0 : stepIndex === 2 ? -arrival : -1;
   const detailPosition = stepIndex < 1 ? 1 : stepIndex === 1 ? 1 - arrival : stepIndex === 2 ? -arrival : -1;
   const pseudoPosition = stepIndex < 2 ? 1 : stepIndex === 2 ? 1 - arrival : stepIndex < 6 ? 0 : stepIndex === 6 ? -arrival : -1;
   const meshPosition = stepIndex < 6 ? 1 : stepIndex === 6 ? 1 - arrival : 0;
@@ -284,8 +466,12 @@ function applyMapStep(stepIndex, stepProgress = 1) {
   stubRoads.style.transform = `translateY(${(1 - stubRoadsReveal) * window.innerHeight}px)`;
   pseudoFacts.style.opacity = factsReveal.toFixed(3);
   pseudoFacts.style.transform = `translateY(${(1 - factsReveal) * 40}px)`;
-  forestMap.style.opacity = (stepIndex === -2 ? arrival : 1).toFixed(3);
+  forestMap.style.opacity = (stepIndex === -2 ? barrierEntrance : 1).toFixed(3);
   forestMap.style.setProperty("--barrier-reveal", barrierReveal.toFixed(3));
+  if (barrierBreakdown) {
+    barrierBreakdown.style.opacity = barrierReveal.toFixed(3);
+    barrierBreakdown.style.pointerEvents = barrierReveal > 0.01 ? "auto" : "none";
+  }
   forestMap.style.setProperty("--forest-stage-reveal", forestStageReveal.toFixed(3));
   forestMap.style.setProperty("--large-forest-reveal", detailReveal.toFixed(3));
   forestMap.style.setProperty("--forest-zoom-detail", clamp((zoomReveal - 0.35) / 0.65).toFixed(3));
@@ -381,7 +567,15 @@ function applyMapStep(stepIndex, stepProgress = 1) {
     const closeFrame = frameForScale(0.38);
     const wideFrame = frameForScale(0.82);
     const isBarrierTransition = stepIndex <= 0;
-    const barrierZoomOut = stepIndex < -1 ? 0 : stepIndex === -1 ? arrival : 1;
+    // Start widening immediately, but distribute the zoom over both barrier
+    // steps so it completes only as the forest-map transition begins.
+    const barrierZoomOut = stepIndex < -2
+      ? 0
+      : stepIndex === -2
+        ? clamp(stepProgress) * 0.5
+        : stepIndex === -1
+          ? 0.5 + clamp(stepProgress) * 0.5
+          : 1;
     const forestTransition = stepIndex < 0 ? 0 : stepIndex === 0 ? arrival : 1;
     const barrierFrame = {
       x: lerp(closeFrame.x, wideFrame.x, barrierZoomOut),
@@ -453,7 +647,19 @@ function updateEndSequence() {
 }
 // Connect Scrollama, links, resizing, and all animation update functions.
 export function setupScrollScenes() {
+  setupSharedStoryAnimation();
+  setupStoryAudio();
+  document.querySelector(".sound-control__button")?.addEventListener("soundchange", (event) => {
+    syncStorySound(event.detail ?? {});
+  });
   setupIntroVideo();
+  document.querySelectorAll('.main-nav__item[href^="#"]').forEach((link) => {
+    link.addEventListener("click", () => {
+      if (activeStoryIndex < 0 || link.getAttribute("href") === "#perspective-shift") return;
+      storyAudioIsSuppressedForNavigation = true;
+      fadeOutStoryAudio();
+    });
+  });
   document.querySelectorAll(".map-section__mark").forEach((image) => {
     image.addEventListener("error", () => image.classList.add("has-error"));
   });
@@ -524,6 +730,18 @@ export function setupScrollScenes() {
   };
 
   if (typeof scrollama === "function") {
+    const isScrollamaDebug = new URLSearchParams(window.location.search).has("scrollama-debug");
+    // Each story owns one explicit Scrollama range. onStepEnter fires in both
+    // directions, so re-entering a story always restarts its clip.
+    const storyScroller = scrollama();
+    storyScroller
+      .setup({
+        step: "[data-story-trigger]",
+        offset: 0.55,
+        order: true,
+        debug: isScrollamaDebug
+      })
+      .onStepEnter(({ element }) => activateStory(Number(element.dataset.storyTrigger)));
     // This instance controls the detailed numbered steps inside the map.
     const mapScroller = scrollama();
     mapScroller

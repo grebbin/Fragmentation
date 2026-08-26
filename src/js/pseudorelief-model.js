@@ -281,7 +281,7 @@ export function setupPseudoreliefModel() {
       pseudoreliefViewer?.setProgress(pseudoreliefProgress);
   };
 
-  new GLTFLoader().setPath("/media/").load(
+  new GLTFLoader().setPath("media/").load(
     "pseudorelief.glb",
     (gltf) => addModel(gltf.scene),
     undefined,
