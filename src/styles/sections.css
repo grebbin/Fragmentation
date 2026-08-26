@@ -1163,6 +1163,17 @@ body:has(.pseudorelief-calibration:not([hidden])) .pseudorelief-model {
   opacity: calc(var(--forest-stage-reveal) * (1 - var(--large-forest-reveal)) * (1 - var(--ranking-reveal)));
 }
 
+/* The route is visible over the nationwide all-forests view only. */
+.forest-map__layer--route {
+  opacity: calc(var(--forest-stage-reveal) * (1 - var(--large-forest-reveal)) * (1 - var(--ranking-reveal)));
+  transition: opacity var(--scrolly-media-transition);
+  will-change: opacity;
+}
+
+.forest-map__route-raster {
+  image-rendering: auto;
+}
+
 .forest-map__layer--large {
   opacity: calc(var(--forest-stage-reveal) * var(--large-forest-reveal) * (1 - var(--forest-zoom-detail)) * (1 - var(--ranking-reveal)));
 }
@@ -1927,7 +1938,9 @@ picture.end-sequence-section__media > img {
 }
 
 .explore-data__overview-caption {
-  margin: 0;
+  /* The caption belongs visually to the satellite view; pull it closer to
+     the image than the general copy-column rhythm. */
+  margin: 0 0 -8px;
   color: var(--color-data-annotation);
   font-family: var(--font-ui);
   font-size: var(--type-facts);

@@ -46,7 +46,7 @@ export const sections = [
 export const exploreData = {
   detail: {
     heading: "Explore the Data",
-    introCopy: "Explore your state’s unfragmented forests by <span class=\"explore-data__intro-desktop\">interacting with them on the right</span><span class=\"explore-data__intro-mobile\">clicking the arrows below</span>.",
+    introCopy: "Explore and interact with your state’s unfragmented forests.",
     introCopyRanking: "You may now explore the ranking and explore <strong><em>the unfragmented forests.</em></strong><br /><br />or finish the <strong><em>story</em></strong>",
     continueLabel: "Finish the Story",
     backLabel: "All States",

@@ -187,6 +187,7 @@ function createMap() {
           <defs class="forest-map__mesh-defs"></defs>
           <g class="forest-map__layer forest-map__layer--barriers"></g>
           <g class="forest-map__layer forest-map__layer--all"></g>
+          <g class="forest-map__layer forest-map__layer--route"></g>
           <g class="forest-map__layer forest-map__layer--large"></g>
           <g class="forest-map__layer forest-map__layer--zoom-detail"></g>
           <g class="forest-map__layer forest-map__layer--mesh"></g>
