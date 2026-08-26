@@ -15,7 +15,7 @@ function createIntro() {
   const section = baseSection(0);
   section.innerHTML = `
   <video class="intro-section__video" autoplay playsinline preload="auto" aria-label="Introductory forest film">
-    <source src="/media/start_first.webm" type="video/webm" />
+    <source src="media/start_first.webm" type="video/webm" />
   </video>
   <div class="intro-section__heading">
     <h1>Fragmented Reality</h1>
@@ -33,9 +33,9 @@ function createImageSequence() {
   const frames = Array.from({ length: 6 }, (_, index) => {
     const frame = index + 1;
     const mobileSource = frame === 6
-      ? `<source media="(max-width: 700px)" srcset="/media/intro6_mobile.webp" />`
+      ? `<source media="(max-width: 700px)" srcset="media/intro6_mobile.webp" />`
       : "";
-    return `<picture>${mobileSource}<img class="sequence-section__frame${index === 0 ? " is-revealed" : ""}" src="/media/intro${frame}.webp" alt="" data-sequence-frame="${index}" style="--frame-layer: ${index}" /></picture>`;
+    return `<picture>${mobileSource}<img class="sequence-section__frame${index === 0 ? " is-revealed" : ""}" src="media/intro${frame}.webp" alt="" data-sequence-frame="${index}" style="--frame-layer: ${index}" /></picture>`;
   }).join("");
   section.innerHTML = `
   <div class="sequence-section__stage">
@@ -97,8 +97,8 @@ function createStorySections() {
       </div>
       <div class="story-outro">
         <picture>
-          <source media="(max-width: 700px)" srcset="/media/intro8_mobile.webp" />
-          <img class="story-outro__image" src="/media/intro8.webp" alt="" aria-hidden="true" />
+          <source media="(max-width: 700px)" srcset="media/intro8_mobile.webp" />
+          <img class="story-outro__image" src="media/intro8.webp" alt="" aria-hidden="true" />
         </picture>
         <p class="story-outro__text">
           Your journey is completed.<br />
@@ -127,8 +127,8 @@ function createMap() {
         <div class="map-section__title-row">
           <h2>
             <span class="map-section__marks" aria-hidden="true">
-              <img class="map-section__mark" src="/media/route.svg" alt="" />
-              <img class="map-section__mark" src="/media/bar_types.svg" alt="" />
+              <img class="map-section__mark" src="media/route.svg" alt="" />
+              <img class="map-section__mark" src="media/bar_types.svg" alt="" />
             </span><span class="map-section__title-text">The Route: Barrier Types</span>
           </h2>
         </div>
@@ -139,7 +139,7 @@ function createMap() {
       </div>
       <div class="map-section__step map-section__step--intro map-section__intro">
         <div class="map-section__title-row map-section__forest-title">
-          <h2><span class="map-section__marks" aria-hidden="true"><img class="map-section__mark" src="/media/forests.svg" alt="" /></span><span class="map-section__title-text">Germany’s Federal States: Forests</span></h2>
+          <h2><span class="map-section__marks" aria-hidden="true"><img class="map-section__mark" src="media/forests.svg" alt="" /></span><span class="map-section__title-text">Germany’s Federal States: Forests</span></h2>
         </div>
         <div class="map-section__intro-copy">
           <p>To explore the whole picture of fragmentation in Germany, we first look at the different indicators.</p>
@@ -152,7 +152,7 @@ function createMap() {
       </div>
       <div class="map-section__step map-section__step--pseudo">
         <div class="map-section__title-row map-section__pseudo-title">
-          <h2><span class="map-section__marks" aria-hidden="true"><img class="map-section__mark" src="/media/stubroads.svg" alt="" /></span><span class="map-section__title-text">Hidden fragmentation: Stub roads and Pseudo-relief</span></h2>
+          <h2><span class="map-section__marks" aria-hidden="true"><img class="map-section__mark" src="media/stubroads.svg" alt="" /></span><span class="map-section__title-text">Hidden fragmentation: Stub roads and Pseudo-relief</span></h2>
         </div>
         <p class="map-section__reveal-text">It’s not just the forest size that matters; shape has an impact too.</p>
         <p class="map-section__reveal-text map-section__stub-copy">So-called stub roads are not classified as fragmentation, yet they significantly reduce the depth of quiet, unfragmented core areas.</p>
@@ -160,18 +160,18 @@ function createMap() {
       </div>
       <div class="map-section__step map-section__step--mesh">
         <div class="map-section__title-row map-section__mesh-title">
-          <h2><span class="map-section__marks" aria-hidden="true"><img class="map-section__mark" src="/media/diagonal.svg" alt="" /><img class="map-section__mark" src="/media/meshsize.svg" alt="" /></span><span class="map-section__title-text">Mesh size</span></h2>
+          <h2><span class="map-section__marks" aria-hidden="true"><img class="map-section__mark" src="media/diagonal.svg" alt="" /><img class="map-section__mark" src="media/meshsize.svg" alt="" /></span><span class="map-section__title-text">Mesh size</span></h2>
         </div>
         <p class="map-section__reveal-text map-section__mesh-intro-copy">To gain a fuller picture of fragmentation, scientists use the indicator mesh sizes. This makes it easier to compare states.</p>
         <p class="map-section__facts map-section__mesh-fact map-section__mesh-fact--intro">Effective mesh size quantifies landscape fragmentation by estimating the probability that two randomly chosen points remain within the same contiguous habitat patch.</p>
-        <video class="map-section__mesh-animation" src="/media/meshsize.mp4" autoplay muted loop playsinline aria-label="Mesh-size animation"></video>
+        <video class="map-section__mesh-animation" src="media/meshsize.mp4" autoplay muted loop playsinline aria-label="Mesh-size animation"></video>
         <p class="map-section__facts map-section__mesh-fact map-section__mesh-fact--outro">Larger mesh sizes indicate lower fragmentation, greater ecological connectivity, and better conditions for wildlife movement.</p>
         <p class="map-section__reveal-text map-section__mesh-route-copy">The original route of the lynx passes through two federal states which are among the least fragmented regions.</p>
         <p class="map-section__reveal-text map-section__mesh-bayern-copy">Bayern, with a mesh size of <strong>8,47</strong> km².</p>
         <p class="map-section__reveal-text map-section__mesh-thueringen-copy">Thüringen, with a mesh size of <strong>7,38</strong> km².</p>
         <div class="map-section__mesh-diagonal-step">
           <p class="map-section__reveal-text">To make this number of km² more relatable, imagine walking the distance diagonally, as this is the longest distance in a square-shaped geometry.</p>
-          <video class="map-section__diagonal-animation" src="/media/diagonal.mp4" autoplay muted loop playsinline aria-label="Diagonal walking-distance animation"></video>
+          <video class="map-section__diagonal-animation" src="media/diagonal.mp4" autoplay muted loop playsinline aria-label="Diagonal walking-distance animation"></video>
           <p class="map-section__facts">The walking pace used for the calculation<br class="mobile-only-break" /> is 5 km/h.</p>
           <p class="map-section__reveal-text map-section__mesh-bayern-time">It would take around <strong>49</strong> minutes to walk undisturbed in Bayern without encountering any fragmentation barriers.</p>
           <p class="map-section__reveal-text map-section__mesh-thueringen-time">In Thüringen it would take around <strong>46</strong> minutes.</p>
@@ -200,7 +200,7 @@ function createMap() {
         <div class="forest-map__mesh-legend" aria-label="Mesh-size scale from highest to lowest">
           <div class="forest-map__mesh-legend-row">
             <div class="forest-map__mesh-legend-title">
-              <img src="/media/meshsize-purple.svg" alt="" />
+              <img src="media/meshsize-purple.svg" alt="" />
               <span>Mesh size</span>
             </div>
           </div>
@@ -293,7 +293,7 @@ function createExploreData() {
           <div class="explore-data__title-row">
             <h2>
               <span class="explore-data__marks" aria-hidden="true">
-                <img class="explore-data__mark" src="/media/explore.svg" alt="" />
+                <img class="explore-data__mark" src="media/explore.svg" alt="" />
               </span><span class="explore-data__title-text">${exploreData.detail.heading}</span>
             </h2>
           </div>
@@ -306,8 +306,8 @@ function createExploreData() {
             </div>
           </div>
           <div class="explore-data__overview-nav">
-            <button type="button" class="explore-data__overview-prev" aria-label="${exploreData.detail.overviewPrevLabel}"><img src="/media/arrow_left.svg" alt="" /></button>
-            <button type="button" class="explore-data__overview-next" aria-label="${exploreData.detail.overviewNextLabel}"><img src="/media/arrow_right.svg" alt="" /></button>
+            <button type="button" class="explore-data__overview-prev" aria-label="${exploreData.detail.overviewPrevLabel}"><img src="media/arrow_left.svg" alt="" /></button>
+            <button type="button" class="explore-data__overview-next" aria-label="${exploreData.detail.overviewNextLabel}"><img src="media/arrow_right.svg" alt="" /></button>
           </div>
         </div>
         <div class="explore-data__media">
@@ -364,8 +364,8 @@ function createExploreData() {
             <p class="explore-data__status">${exploreData.detail.loadingStatus}</p>
           </div>
           <div class="explore-data__state-nav">
-            <button type="button" class="explore-data__state-prev" aria-label="${exploreData.detail.statePrevLabel}"><img src="/media/arrow_left.svg" alt="" /></button>
-            <button type="button" class="explore-data__state-next" aria-label="${exploreData.detail.stateNextLabel}"><img src="/media/arrow_right.svg" alt="" /></button>
+            <button type="button" class="explore-data__state-prev" aria-label="${exploreData.detail.statePrevLabel}"><img src="media/arrow_left.svg" alt="" /></button>
+            <button type="button" class="explore-data__state-next" aria-label="${exploreData.detail.stateNextLabel}"><img src="media/arrow_right.svg" alt="" /></button>
           </div>
           <div class="explore-data__ranking-wrap">
             <div class="explore-data__ranking-scroll" tabindex="0" role="region" aria-label="All German states ranked by mesh size, scroll to see more">
@@ -376,8 +376,8 @@ function createExploreData() {
               </svg>
             </div>
             <div class="explore-data__ranking-nav">
-              <button type="button" class="explore-data__ranking-prev" aria-label="${exploreData.ranking.prevLabel}"><img src="/media/arrow_left.svg" alt="" /></button>
-              <button type="button" class="explore-data__ranking-next" aria-label="${exploreData.ranking.nextLabel}"><img src="/media/arrow_right.svg" alt="" /></button>
+              <button type="button" class="explore-data__ranking-prev" aria-label="${exploreData.ranking.prevLabel}"><img src="media/arrow_left.svg" alt="" /></button>
+              <button type="button" class="explore-data__ranking-next" aria-label="${exploreData.ranking.nextLabel}"><img src="media/arrow_right.svg" alt="" /></button>
             </div>
           </div>
         </div>
@@ -402,12 +402,12 @@ function createEndSequence() {
     if (index === 7) {
       return `
         <picture class="${classes}" data-end-media="${index}" style="--end-layer: ${index}">
-          <source media="(max-width: 700px)" srcset="/media/end8_mobile.webp" />
-          <img src="/media/end8.webp" alt="" />
+          <source media="(max-width: 700px)" srcset="media/end8_mobile.webp" />
+          <img src="media/end8.webp" alt="" />
         </picture>
       `;
     }
-    return `<img class="${classes}" data-end-media="${index}" src="/media/end${index + 1}.webp" alt="" style="--end-layer: ${index}" />`;
+    return `<img class="${classes}" data-end-media="${index}" src="media/end${index + 1}.webp" alt="" style="--end-layer: ${index}" />`;
   }).join("");
   section.innerHTML = `
     <div class="end-sequence-section__stage">

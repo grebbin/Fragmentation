@@ -2,7 +2,7 @@ import { geoIdentity, geoPath, json, select, zoom, zoomIdentity } from "d3";
 import { feature } from "topojson-client";
 import { exploreData as exploreDataContent } from "./content.js";
 
-const GERMANY_TOPOJSON_URL = "/data/wald_expo/deut.topojson";
+const GERMANY_TOPOJSON_URL = "data/wald_expo/deut.topojson";
 const DEFAULT_STATE_AGS = "09";
 const MAP_VIEW_SIZE = 760;
 // Bayern renders at 60% of its original size (712px inner side at margin 24
@@ -13,7 +13,7 @@ const MAP_VIEW_SIZE = 760;
 const MAP_INNER_SIDE = 712 * 0.6;
 const MAP_MARGIN_TOP = 20;
 const MAP_MARGIN_X = (MAP_VIEW_SIZE - MAP_INNER_SIDE) / 2;
-const MESH_CSV_URL = "/data/U06KG__2024.csv";
+const MESH_CSV_URL = "data/U06KG__2024.csv";
 // Only used as a walking-time fallback for states missing state_stats.json.
 const WALK_SPEED_KMH = 5;
 // Height of the "all states" ranking canvas; width is derived from the
@@ -42,7 +42,7 @@ const RANKING_VIEW_SELECTOR = ".explore-data__ranking-scale, .explore-data__rank
 // the names from the CSV. Using NFD would produce a different URL for states
 // with umlauts (Baden-Württemberg, Thüringen) and make their data 404.
 function dataRootFor(stateName) {
-  return `/data/satellite/${stateName.toLowerCase().normalize("NFC")}`;
+  return `data/satellite/${stateName.toLowerCase().normalize("NFC")}`;
 }
 
 // Fits one state's boundary to the detail map's display box. Used both to

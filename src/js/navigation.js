@@ -28,7 +28,7 @@ export function createSideNavigation(overlay) {
   aside.setAttribute("aria-label", "Project information");
   aside.innerHTML = `
   <a class="side-nav__logo" href="#introduction" aria-label="Fragmented Reality home">
-    <img class="side-nav__logo-image" src="/media/Logo_DM.png" alt="" />
+    <img class="side-nav__logo-image" src="media/Logo_DM.png" alt="" />
   </a>
   <nav class="side-nav__links" aria-label="Additional information">
     <a class="side-nav__link side-nav__link--brand" href="#introduction">Fragmented Reality</a>
@@ -38,7 +38,7 @@ export function createSideNavigation(overlay) {
   </nav>
   <div class="sound-control">
     <button class="sound-control__button is-enabled" type="button" aria-label="Disable sound" aria-pressed="true">
-      <img src="/media/sound_on_DM.svg" alt="" />
+      <img src="media/sound_on_DM.svg" alt="" />
     </button>
     <p class="sound-control__hint">This website uses sound.<br />You can disable it here.</p>
   </div>
@@ -50,13 +50,13 @@ export function createSideNavigation(overlay) {
   const updateLogo = () => {
     if (!logoImage) return;
     const theme = document.querySelector(".site-shell")?.dataset.theme === "light" ? "BM" : "DM";
-    logoImage.src = `/media/Logo_${theme}.png`;
+    logoImage.src = `media/Logo_${theme}.png`;
   };
   // Use the opposite logo artwork as the desktop hover state.
   const invertLogo = () => {
     if (!logoImage) return;
     const oppositeTheme = document.querySelector(".site-shell")?.dataset.theme === "light" ? "DM" : "BM";
-    logoImage.src = `/media/Logo_${oppositeTheme}.png`;
+    logoImage.src = `media/Logo_${oppositeTheme}.png`;
   };
   const supportsTrueHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   if (supportsTrueHover) {
@@ -66,7 +66,7 @@ export function createSideNavigation(overlay) {
     logoLink?.addEventListener("blur", updateLogo);
   }
   logoImage?.addEventListener("error", () => {
-    if (!logoImage.src.endsWith("/media/Logo_DM.png")) logoImage.src = "/media/Logo_DM.png";
+    if (!logoImage.src.endsWith("/media/Logo_DM.png")) logoImage.src = "media/Logo_DM.png";
   });
   logoImage?.addEventListener("logothemechange", updateLogo);
   // Keep the speaker artwork synchronized with sound state and page theme.
@@ -75,12 +75,12 @@ export function createSideNavigation(overlay) {
     if (!button || !icon) return;
     const isEnabled = button.classList.contains("is-enabled");
     const theme = document.querySelector(".site-shell")?.dataset.theme === "light" ? "BM" : "DM";
-    icon.src = `/media/sound_${isEnabled ? "on" : "off"}_${theme}.svg`;
+    icon.src = `media/sound_${isEnabled ? "on" : "off"}_${theme}.svg`;
   };
   const soundIcon = button?.querySelector("img");
   soundIcon?.addEventListener("error", () => {
     const isEnabled = button?.classList.contains("is-enabled");
-    const fallback = `/media/sound_${isEnabled ? "on" : "off"}.svg`;
+    const fallback = `media/sound_${isEnabled ? "on" : "off"}.svg`;
     if (!soundIcon.src.endsWith(fallback.replace("./", "/"))) soundIcon.src = fallback;
   });
   // One button controls page videos and the timed story audio tracks.

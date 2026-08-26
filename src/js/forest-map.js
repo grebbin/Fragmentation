@@ -4,12 +4,12 @@ import { feature, mesh } from "topojson-client";
 const barrierRasterPreload = new Image();
 barrierRasterPreload.decoding = "async";
 barrierRasterPreload.fetchPriority = "high";
-barrierRasterPreload.src = "/media/barriers_1.webp";
+barrierRasterPreload.src = "media/barriers_1.webp";
 const barrierRasterReady = barrierRasterPreload.decode().catch(() => undefined);
 
 const routeRasterPreload = new Image();
 routeRasterPreload.decoding = "async";
-routeRasterPreload.src = "/media/route_overlay.png";
+routeRasterPreload.src = "media/route_overlay.png";
 const routeRasterReady = routeRasterPreload.decode().catch(() => undefined);
 
 function worldFileBounds(worldFile, image) {
@@ -35,13 +35,13 @@ export async function setupForestMap(onReady) {
 
   try {
     const [germanyTopology, barrierWorldFile, routeWorldFile, allForestsTopology, largeForestsTopology, zoomForestsTopology, meshCsv] = await Promise.all([
-      json("/data/wald_expo/deut.topojson"),
-      fetch("/media/barriers_1.pgw").then((response) => response.text()),
-      fetch("/media/route_overlay.pgw").then((response) => response.text()),
-      json("/data/wald_expo/wald_alles_balanced.topojson"),
-      json("/data/wald_expo/wald_50.topojson"),
-      json("/data/wald_expo/wald_50_zoom.topojson"),
-      fetch("/data/U06KG__2024.csv").then((response) => response.text())
+      json("data/wald_expo/deut.topojson"),
+      fetch("media/barriers_1.pgw").then((response) => response.text()),
+      fetch("media/route_overlay.pgw").then((response) => response.text()),
+      json("data/wald_expo/wald_alles_balanced.topojson"),
+      json("data/wald_expo/wald_50.topojson"),
+      json("data/wald_expo/wald_50_zoom.topojson"),
+      fetch("data/U06KG__2024.csv").then((response) => response.text())
     ]);
     await Promise.all([barrierRasterReady, routeRasterReady]);
     const germany = feature(germanyTopology, germanyTopology.objects.data);
@@ -86,7 +86,7 @@ export async function setupForestMap(onReady) {
     barrierLayer
       .append("image")
       .attr("class", "forest-map__barrier-raster")
-      .attr("href", "/media/barriers_1.webp")
+      .attr("href", "media/barriers_1.webp")
       .attr("x", barrierX0)
       .attr("y", barrierY0)
       .attr("width", barrierX1 - barrierX0)
@@ -104,7 +104,7 @@ export async function setupForestMap(onReady) {
     select(svg).select(".forest-map__layer--route")
       .append("image")
       .attr("class", "forest-map__route-raster")
-      .attr("href", "/media/route_overlay.png")
+      .attr("href", "media/route_overlay.png")
       .attr("x", routeX0)
       .attr("y", routeY0)
       .attr("width", routeX1 - routeX0)
