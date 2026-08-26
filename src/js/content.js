@@ -46,7 +46,7 @@ export const sections = [
 export const exploreData = {
   detail: {
     heading: "Explore the Data",
-    introCopy: "Explore your state's unfragmented forests by <span class=\"explore-data__intro-desktop\">interacting with them on the right</span><span class=\"explore-data__intro-mobile\">clicking the arrows below</span>.",
+    introCopy: "Explore your state’s unfragmented forests by <span class=\"explore-data__intro-desktop\">interacting with them on the right</span><span class=\"explore-data__intro-mobile\">clicking the arrows below</span>.",
     introCopyRanking: "You may now explore the ranking and explore <strong><em>the unfragmented forests.</em></strong><br /><br />or finish the <strong><em>story</em></strong>",
     continueLabel: "Finish the Story",
     backLabel: "All States",
@@ -113,7 +113,7 @@ export const references = {
     "Kok, A. C. M., Berkhout, B. W., Carlson, N. V., Evans, N. P., Khan, N., Potvin, D. A., et al. (2023). How chronic anthropogenic noise can affect wildlife communities. Frontiers in Ecology and Evolution, 11, Article 1130075. <a href=\"https://doi.org/10.3389/fevo.2023.1130075\" target=\"_blank\" rel=\"noreferrer\">https://doi.org/10.3389/fevo.2023.1130075</a>",
     "Zheltuchin, A. (1992). Distribution and numbers of lynx in the Soviet Union. In Council of Europe (Ed.), The situation, conservation needs and reintroduction of lynx in Europe (Environmental Encounters No. 11, pp. 19–29). Council of Europe Press.",
     "Walz, U., Schumacher, U., & Krüger, T. (2023). Landschaftszerschneidung und Waldfragmentierung in Deutschland—Ergebnisse aus einem Monitoring im Kontext von Schutzgebieten und Hemerobie. Naturschutz und Landschaftsplanung. <a href=\"https://doi.org/10.19217/NUL2022-02-04\" target=\"_blank\" rel=\"noreferrer\">https://doi.org/10.19217/NUL2022-02-04</a>",
-    "Gräfe, A. (2023). GIS-gestützte Erfassung von Grünbrücken in Deutschland [Master's thesis, Hochschule für Technik und Wirtschaft Dresden]."
+    "Gräfe, A. (2023). GIS-gestützte Erfassung von Grünbrücken in Deutschland [Master’s thesis, Hochschule für Technik und Wirtschaft Dresden]."
   ]
 };
 

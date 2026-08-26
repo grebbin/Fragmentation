@@ -83,9 +83,9 @@ export function createSideNavigation(overlay) {
     const fallback = `/media/sound_${isEnabled ? "on" : "off"}.svg`;
     if (!soundIcon.src.endsWith(fallback.replace("./", "/"))) soundIcon.src = fallback;
   });
-  // One button controls the muted state of every video on the page.
+  // One button controls page videos and the timed story audio tracks.
   button?.addEventListener("click", () => {
-    const videos = document.querySelectorAll("video");
+    const videos = document.querySelectorAll("video:not([data-story-shared-animation])");
     const soundWillBeEnabled = !button.classList.contains("is-enabled");
     videos.forEach((video) => {
       video.muted = !soundWillBeEnabled;
@@ -94,6 +94,9 @@ export function createSideNavigation(overlay) {
     button.setAttribute("aria-pressed", String(soundWillBeEnabled));
     button.setAttribute("aria-label", soundWillBeEnabled ? "Disable sound" : "Enable sound");
     updateIcon();
+    button.dispatchEvent(new CustomEvent("soundchange", {
+      detail: { enabled: soundWillBeEnabled }
+    }));
     if (soundWillBeEnabled) {
       const visibleVideo = Array.from(videos).find((video) => {
         const rect = video.getBoundingClientRect();

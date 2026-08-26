@@ -26,7 +26,7 @@ app.append(shell);
 
 setupInfoPages(infoOverlay);
 
-document.querySelectorAll("video").forEach((video) => {
+document.querySelectorAll("video:not([data-story-shared-animation])").forEach((video) => {
   video.muted = false;
 });
 

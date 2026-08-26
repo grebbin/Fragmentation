@@ -47,7 +47,7 @@ function createImageSequence() {
         <p>These are the two perspectives on land fragmentation, which describes the disruption of natural ecological connections caused by humans.</p>
       </div>
       <div class="sequence-section__text" data-sequence-text="1">
-        <p>Let's experience fragmentation through the eyes of the lynx on their route from the Bavarian Forest to the Harz Mountains.</p>
+        <p>Let’s experience fragmentation through the eyes of the lynx on their route from the Bavarian Forest to the Harz Mountains.</p>
       </div>
       <div class="sequence-section__text" data-sequence-text="2">
         <p>The lynx populations in these areas of Germany are so isolated from one another that natural genetic exchange is virtually impossible, which increases the risk of inbreeding and genetic erosion.</p>
@@ -78,20 +78,22 @@ function createStorySections() {
   const media = stories.map((story, index) => {
     const visual = `<img class="story-chapter-section__visual" src="${story.image}" alt="" />`;
     const audio = story.audio?.src
-      ? `<audio data-story-audio="${index}" src="${story.audio.src}" preload="metadata"></audio>`
+      ? `<audio data-story-audio="${index}" src="${story.audio.src}" preload="auto"></audio>`
       : "";
     return `<div class="story-chapter-section__media-item" data-story-media="${index}">${visual}${audio}</div>`;
   }).join("");
   // The cards are visually stacked, so separate document-positioned trigger
   // elements give Scrollama one real scroll range per story.
+  const storyScrollRange = 88;
   const triggers = stories.map((story, index) => `
-    <div class="story-scroll-trigger" data-story-trigger="${index}" data-offset="${story.scrollOffset ?? 0.55}" style="--story-trigger-start: ${index * (72 / stories.length)}%; --story-trigger-size: ${72 / stories.length}%;" aria-hidden="true"></div>
+    <div class="story-scroll-trigger" data-story-trigger="${index}" data-offset="${story.scrollOffset ?? 0.55}" style="--story-trigger-start: ${index * (storyScrollRange / stories.length)}%; --story-trigger-size: ${storyScrollRange / stories.length}%;" aria-hidden="true"></div>
   `).join("");
   section.innerHTML = `
     <div class="story-chapter-section__stage">
       <div class="story-chapter-section__panel">${cards}</div>
       <div class="story-chapter-section__media" aria-hidden="true">
-        <img src="/media/story_placeholder.webp" alt="" />
+        ${media}
+        ${sharedAnimationSrc ? `<video class="story-chapter-section__visual story-chapter-section__shared-animation" data-story-shared-animation src="${sharedAnimationSrc}" poster="${stories[0]?.image ?? ""}" muted playsinline preload="auto" fetchpriority="high" aria-label="Story animation"></video>` : ""}
       </div>
       <div class="story-outro">
         <picture>
@@ -109,6 +111,7 @@ function createStorySections() {
         </a>
       </div>
     </div>
+    ${triggers}
   `;
   return [section];
 }
@@ -136,11 +139,11 @@ function createMap() {
       </div>
       <div class="map-section__step map-section__step--intro map-section__intro">
         <div class="map-section__title-row map-section__forest-title">
-          <h2><span class="map-section__marks" aria-hidden="true"><img class="map-section__mark" src="/media/forests.svg" alt="" /></span><span class="map-section__title-text">Germany's Federal States: Forests</span></h2>
+          <h2><span class="map-section__marks" aria-hidden="true"><img class="map-section__mark" src="/media/forests.svg" alt="" /></span><span class="map-section__title-text">Germany’s Federal States: Forests</span></h2>
         </div>
         <div class="map-section__intro-copy">
           <p>To explore the whole picture of fragmentation in Germany, we first look at the different indicators.</p>
-          <p>A 'good forest', which is essential for biodiversity, is considered to be an area above 50 km\xB2.</p>
+          <p>A ‘good forest’, which is essential for biodiversity, is considered to be an area above 50 km\xB2.</p>
         </div>
       </div>
       <div class="map-section__step map-section__step--detail">
@@ -151,9 +154,9 @@ function createMap() {
         <div class="map-section__title-row map-section__pseudo-title">
           <h2><span class="map-section__marks" aria-hidden="true"><img class="map-section__mark" src="/media/stubroads.svg" alt="" /></span><span class="map-section__title-text">Hidden fragmentation: Stub roads and Pseudo-relief</span></h2>
         </div>
-        <p class="map-section__reveal-text">It's not just the forest size that matters; shape has an impact too.</p>
+        <p class="map-section__reveal-text">It’s not just the forest size that matters; shape has an impact too.</p>
         <p class="map-section__reveal-text map-section__stub-copy">So-called stub roads are not classified as fragmentation, yet they significantly reduce the depth of quiet, unfragmented core areas.</p>
-        <p class="map-section__facts map-section__pseudo-facts-copy">Pseudo-relief and mean distance to the nearest fragmented area are used to better capture the effect of stub roads. High pseudo-volume (white) marks a compact area with a large, deep core far from human disturbance. Low pseudo-volume (red) marks an area that is either narrow or "punctured" by stub roads.</p>
+        <p class="map-section__facts map-section__pseudo-facts-copy">Pseudo-relief and mean distance to the nearest fragmented area are used to better capture the effect of stub roads. High pseudo-volume (white) marks a compact area with a large, deep core far from human disturbance. Low pseudo-volume (red) marks an area that is either narrow or “punctured” by stub roads.</p>
       </div>
       <div class="map-section__step map-section__step--mesh">
         <div class="map-section__title-row map-section__mesh-title">
@@ -180,7 +183,7 @@ function createMap() {
         <p class="forest-map__status">Loading forest data…</p>
         <svg class="forest-map__svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="forest-map-title forest-map-description">
           <title id="forest-map-title">Forests in Germany</title>
-          <desc id="forest-map-description">An SVG map showing Germany's federal states and forest areas. Scrolling changes the display from all forests to forests larger than 50 square kilometres.</desc>
+          <desc id="forest-map-description">An SVG map showing Germany’s federal states and forest areas. Scrolling changes the display from all forests to forests larger than 50 square kilometres.</desc>
           <defs class="forest-map__mesh-defs"></defs>
           <g class="forest-map__layer forest-map__layer--barriers"></g>
           <g class="forest-map__layer forest-map__layer--all"></g>
@@ -236,6 +239,20 @@ function createMap() {
           <span>Far from human disturbance</span>
         </div>
       </div>
+      <div class="barrier-breakdown" aria-label="Barrier types along the route: 79 streets, 48 settlements, 13 railways, and 2 airports.">
+        <div class="barrier-breakdown__item barrier-breakdown__item--streets" tabindex="0" style="--barrier-share: 56" title="79 Streets (56 %)">
+          <span>79 Streets</span><strong>(56 %)</strong>
+        </div>
+        <div class="barrier-breakdown__item barrier-breakdown__item--settlements" tabindex="0" style="--barrier-share: 34" title="48 Settlements (34 %)">
+          <span>48 Settlements</span><strong>(34 %)</strong>
+        </div>
+        <div class="barrier-breakdown__item barrier-breakdown__item--railways" tabindex="0" style="--barrier-share: 9" title="13 Railways (9 %)">
+          <span>13 Railways</span><strong>(9 %)</strong>
+        </div>
+        <div class="barrier-breakdown__item barrier-breakdown__item--airports" tabindex="0" style="--barrier-share: 1" title="2 Airports (1 %)">
+          <span>2 Airports</span><strong>(1 %)</strong>
+        </div>
+      </div>
     </div>
   </div>
   <div class="map-section__triggers" aria-hidden="true">
@@ -256,6 +273,7 @@ function createMap() {
     <div class="map-scroll-step" data-map-step="11"></div>
     <div class="map-scroll-step" data-map-step="12"></div>
     <div class="map-scroll-step" data-map-step="13"></div>
+    <div class="map-scroll-step map-scroll-step--hold" data-map-step="14"></div>
   </div>
 `;
   return section;
@@ -290,10 +308,6 @@ function createExploreData() {
             <button type="button" class="explore-data__overview-prev" aria-label="${exploreData.detail.overviewPrevLabel}"><img src="/media/arrow_left.svg" alt="" /></button>
             <button type="button" class="explore-data__overview-next" aria-label="${exploreData.detail.overviewNextLabel}"><img src="/media/arrow_right.svg" alt="" /></button>
           </div>
-          <a class="explore-data__continue" href="#conclusion" aria-label="Finish the story">
-            <span>${exploreData.detail.continueLabel}</span>
-            <span aria-hidden="true">&darr;</span>
-          </a>
         </div>
         <div class="explore-data__media">
           <div class="explore-data__header">
@@ -367,6 +381,10 @@ function createExploreData() {
           </div>
         </div>
       </div>
+      <a class="explore-data__continue" href="#conclusion" aria-label="Finish the story">
+        <span>${exploreData.detail.continueLabel}</span>
+        <span aria-hidden="true">&darr;</span>
+      </a>
     </div>
   `;
   return section;
